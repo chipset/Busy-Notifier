@@ -2,6 +2,8 @@
 
 A native macOS menu bar app that shows a red **Busy** box at the upper left of the main display while a Webex, Microsoft Teams, Google Meet, or Zoom call is active. The box stays above ordinary windows, follows Spaces and full-screen apps, and does not intercept clicks or take keyboard focus. Requires macOS 13 or newer.
 
+Start with the [user guide](USER_GUIDE.md) for installation, macOS security prompts, Accessibility permission, settings, and troubleshooting.
+
 ## Run
 
 Open `dist/Meeting Busy.app`. On first launch, grant **Accessibility** access in System Settings → Privacy & Security → Accessibility. The app lives in the menu bar, with no Dock icon. If access is not picked up after enabling it, quit and reopen the app.
@@ -13,7 +15,7 @@ To rebuild with Xcode or the Swift command line tools:
 open "dist/Meeting Busy.app"
 ```
 
-The script builds for the current Mac's architecture and creates an ad hoc signed app. Keep it in a permanent location before enabling **Launch at login**. Rebuilds may require granting Accessibility access again. Distribution to other Macs requires a Developer ID signature and notarization.
+The script builds for the current Mac's architecture and creates an ad hoc signed app. Keep it in a permanent location before enabling **Launch at login**. Rebuilds may require granting Accessibility access again. Current builds have no Apple Developer ID signature or Apple notarization; see the [first-launch security instructions](USER_GUIDE.md#open-a-build-that-macos-blocks).
 
 The application icon is a white camera with a busy badge on a red gradient. `scripts/make-icon.swift` draws the vector artwork at standard macOS icon resolutions; the build script packages `AppIcon.icns` and exports `dist/AppIcon.png` for previewing. Changing the indicator color does not change the application icon or menu bar symbol.
 

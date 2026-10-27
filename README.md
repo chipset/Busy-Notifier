@@ -1,6 +1,6 @@
 # Meeting Busy
 
-A native macOS menu bar app that shows a red **Busy** box at the upper left of the main display while a Webex, Microsoft Teams, Google Meet, or Zoom call is active. The box stays above ordinary windows, follows Spaces and full-screen apps, and does not intercept clicks or take keyboard focus. Requires macOS 13 or newer.
+A native macOS menu bar app that shows a red **Busy** box at the upper left of the main display while a Webex, Microsoft Teams, Google Meet, or Zoom call is active. The box stays above ordinary windows, follows Spaces and full-screen apps, and can be repositioned from its right-click menu without taking keyboard focus. Requires macOS 13 or newer.
 
 Start with the [user guide](USER_GUIDE.md) for installation, macOS security prompts, Accessibility permission, settings, and troubleshooting.
 
@@ -28,6 +28,8 @@ The application icon is a white camera with a busy badge on a red gradient. `scr
 - **Settings…:** changes the indicator text, color, size (50–250%), transparency (0–90%), display, and location. The color picker changes the box fill; text automatically uses black or white for contrast. Blank text uses “Busy”; longer messages automatically fit the box. Choose a corner or center preset, or use horizontal/vertical sliders for a custom position. Changes save automatically and survive relaunch, including appearance preferences from earlier versions. The preview is opt-in through **Show indicator preview**; opening Settings does not turn it on. Presentation hiding still takes precedence.
 
 A preview is labeled **Preview** in the menu, including when Accessibility setup is needed. Stop it with **Stop preview**, by selecting a detection mode, by unchecking the preview in Settings, or by closing Settings (for the Settings preview). In Automatic mode, no permission and no explicit preview means no indicator; leaving a meeting clears the indicator on the next completed scan.
+
+To move the visible box, **right-click → Move indicator**, then drag it with the left mouse button and release. Control-click also opens this menu. The new position and display save automatically and appear in Settings. Dropping near an edge keeps the entire indicator within the display's usable area. Right-click again and choose **Cancel move** to leave move mode without dragging. When outside a meeting, enable the Settings preview to position it.
 
 Stop sharing / Stop presenting controls automatically hide the indicator. Only your own sharing controls count; another participant presenting should not hide your Busy status. The app actually hides its window rather than relying on a window-capture exclusion flag.
 
@@ -71,6 +73,7 @@ Manual checks with Accessibility enabled:
 6. Leave the call; the box should disappear. Revoke Accessibility access and confirm the menu reports setup is needed.
 7. Preview the box, change the main display, and test sleep/wake and Launch at login.
 8. Change size, transparency, display, and position in Settings. Confirm changes apply immediately, stay on screen, and persist after quitting/reopening. Close Settings to end its preview.
+9. Right-click the indicator, choose Move indicator, and drag it within and between displays. Confirm it does not snap back during a scan, retains its position after relaunch, and still hides when presenting. Check Control-click and Cancel move as well.
 
 ## Implementation
 

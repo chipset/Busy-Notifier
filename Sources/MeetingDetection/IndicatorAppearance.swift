@@ -53,6 +53,19 @@ public struct IndicatorAppearance: Codable, Equatable, Sendable {
                       y: screen.maxY - margin - height - travelY * value.y, width: width, height: height)
     }
 
+    /// Convert a dragged window origin back to the same normalized coordinates used by Settings.
+    public func repositioned(to origin: CGPoint, in screen: CGRect, displayID: UInt32) -> Self {
+        var value = normalized
+        let margin = min(12, max(0, min(screen.width, screen.height) / 4))
+        let size = value.frame(in: screen).size
+        let travelX = max(0, screen.width - 2 * margin - size.width)
+        let travelY = max(0, screen.height - 2 * margin - size.height)
+        value.x = travelX > 0 ? (origin.x - screen.minX - margin) / travelX : 0
+        value.y = travelY > 0 ? (screen.maxY - margin - size.height - origin.y) / travelY : 0
+        value.displayID = displayID
+        return value.normalized
+    }
+
     private func clamp(_ value: Double, _ range: ClosedRange<Double>, fallback: Double) -> Double {
         value.isFinite ? min(range.upperBound, max(range.lowerBound, value)) : fallback
     }

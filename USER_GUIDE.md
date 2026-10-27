@@ -83,10 +83,19 @@ Open the menu bar menu and choose **Settings…**.
 | Size | Choose 50–250% of the default size. |
 | Transparency | 0% is solid; 90% is almost transparent. |
 | Display | Choose the main display or a connected display. An unavailable display falls back to the main display. |
-| Location | Use a corner/center button or the horizontal and vertical sliders. |
+| Location | Use a corner/center button, the horizontal and vertical sliders, or the indicator's right-click Move option. |
 | Restore default appearance | Reset the message, color, size, transparency, display choice, and location. |
 
 Changes save automatically and survive quitting the app. Changing the indicator color does not change the application launch icon.
+
+To move the box directly:
+
+1. Right-click the visible indicator (or Control-click it).
+2. Choose **Move indicator**. The pointer changes to a hand over the box.
+3. Hold the left mouse button on the box and drag it to the desired position, including another display.
+4. Release the button to save the new display and position automatically. The box stays within the chosen display's usable area.
+
+To cancel before dragging, right-click again and choose **Cancel move**. When you are not in a meeting, enable the Settings preview below to make the indicator available for moving. The indicator receives mouse clicks within its box so that its Move menu is accessible; it does not take keyboard focus.
 
 To see changes outside a meeting, enable **Show indicator preview**. This keeps a preview visible until you uncheck it, close Settings, select a detection mode, or choose **Stop preview** from the menu. Opening Settings alone does not enable a preview.
 

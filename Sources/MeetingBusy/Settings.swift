@@ -85,6 +85,8 @@ private struct SettingsView: View {
                 Divider()
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Location").font(.headline)
+                    Text("You can also right-click the indicator, choose Move indicator, then drag it. Release to save.")
+                        .font(.caption).foregroundStyle(.secondary)
                     Picker("Display", selection: $store.appearance.displayID) {
                         Text("Main display").tag(nil as UInt32?)
                         ForEach(NSScreen.screens, id: \.displayID) { screen in

@@ -47,6 +47,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         appearance.onChange = { [weak self] in self?.updateUI() }
+        panel.onMove = { [weak self] origin, screen, displayID in
+            guard let self else { return }
+            self.appearance.appearance = self.appearance.appearance.repositioned(to: origin, in: screen, displayID: displayID)
+        }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.image = NSImage(systemSymbolName: "person.crop.circle.badge.clock", accessibilityDescription: "Meeting Busy")
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(willSleep), name: NSWorkspace.willSleepNotification, object: nil)

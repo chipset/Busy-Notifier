@@ -1,6 +1,8 @@
-# Meeting Busy 0.2.0
+# Meeting Busy 0.2.1
 
-Version update from 0.0.3 to 0.2.0 (build 14). Functionality is unchanged. Supports macOS 13 and newer, with one universal application for Apple Silicon and Intel Macs.
+Maintenance release for macOS 13 and newer, with one universal application for Apple Silicon and Intel Macs.
+
+- Show the application version and build number at the top of **About & setup…**, so users can identify the running build. This release displays **Version 0.2.1 (build 15)**.
 
 - Includes **Available — hide indicator** and timed Available modes for 15, 30, or 60 minutes. Hide false positives without marking yourself Presenting; return to Automatic whenever you want. Detection continues, while Available also hides previews.
 - Includes opt-in browser integration for Google Meet, Microsoft Teams, Webex, and Zoom web calls in background tabs. A bundled local native messaging helper connects the extension to the app, including when Accessibility access is unavailable.
@@ -9,9 +11,9 @@ Version update from 0.0.3 to 0.2.0 (build 14). Functionality is unchanged. Suppo
 
 ## Installation and security
 
-Download `MeetingBusy-0.2.0-universal.zip`, extract it, and move `Meeting Busy.app` to Applications. Grant Accessibility permission for native-client and Safari detection. Browser integration requires separate setup: enable it in Settings, install the selected browser bridge, and load the provided extension folder. Chrome, Edge, Brave, and Chromium use developer-mode unpacked loading. Firefox uses a temporary unsigned add-on that must be loaded again after restarting the browser. Safari continues to use Accessibility.
+Download `MeetingBusy-0.2.1-universal.zip`, extract it, and move `Meeting Busy.app` to Applications. Grant Accessibility permission for native-client and Safari detection. Browser integration requires separate setup: enable it in Settings, install the selected browser bridge, and load the provided extension folder. Chrome, Edge, Brave, and Chromium use developer-mode unpacked loading. Firefox uses a temporary unsigned add-on that must be loaded again after restarting the browser. Safari continues to use Accessibility.
 
-See [the user guide](https://github.com/chipset/Busy-Notifier/blob/v0.2.0/USER_GUIDE.md) and [browser setup](https://github.com/chipset/Busy-Notifier/blob/v0.2.0/BrowserExtension/README.md).
+See [the user guide](https://github.com/chipset/Busy-Notifier/blob/v0.2.1/USER_GUIDE.md) and [browser setup](https://github.com/chipset/Busy-Notifier/blob/v0.2.1/BrowserExtension/README.md).
 
 This build is **ad hoc signed and not Apple-notarized**. It has no Apple Developer ID signature. Only approve a copy you trust. Browser extensions are not published to extension stores. The optional extension requests access to supported provider sites and native messaging, and transmits only local service/call/sharing flags and ephemeral numeric tab/frame IDs. URLs, titles, names, chat, and raw control labels are not sent to the native host. Notifications are optional; no microphone, camera, or screen-recording access is requested.
 

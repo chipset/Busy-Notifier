@@ -467,7 +467,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.messageText = "Meeting Busy"
-        alert.informativeText = "Shows a red Busy box at the upper left of your main display during Webex, Teams, Google Meet, and Zoom calls.\n\nEnable Accessibility access so Meeting Busy can read meeting buttons. No microphone, camera, or screen recording access is needed.\n\nThe indicator hides when a Stop sharing, Stop Share, or Stop presenting control is detected. Before presenting, choose ‘I’m presenting’ from the menu bar for immediate hiding; return to Automatic afterward.\n\nDetection currently uses English controls. For inactive browser tabs, set up the optional extension in Settings → Browser integration. Some client versions may still hide their controls. Use Force Busy for missed calls or Available to hide a false positive."
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+        alert.informativeText = "Version \(version) (build \(build))\n\nShows a red Busy box at the upper left of your main display during Webex, Teams, Google Meet, and Zoom calls.\n\nEnable Accessibility access so Meeting Busy can read meeting buttons. No microphone, camera, or screen recording access is needed.\n\nThe indicator hides when a Stop sharing, Stop Share, or Stop presenting control is detected. Before presenting, choose ‘I’m presenting’ from the menu bar for immediate hiding; return to Automatic afterward.\n\nDetection currently uses English controls. For inactive browser tabs, set up the optional extension in Settings → Browser integration. Some client versions may still hide their controls. Use Force Busy for missed calls or Available to hide a false positive."
         alert.addButton(withTitle: "Grant Accessibility access")
         alert.addButton(withTitle: "Done")
         if alert.runModal() == .alertFirstButtonReturn { grantAccess() }

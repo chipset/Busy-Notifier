@@ -42,6 +42,8 @@ You can revoke access at any time by turning off Meeting Busy in the same Access
 
 ## Tell whether the app is running
 
+Choose **About & setup…** from the menu bar menu to see the application version and build number. Quit and reopen after updating to run the newly installed version.
+
 Look for a **video camera symbol in the menu bar**, usually near the upper right of the screen. Meeting Busy does not have a Dock icon. The red camera application icon in Finder is the icon used to launch it.
 
 Click the menu bar symbol and read the first line:

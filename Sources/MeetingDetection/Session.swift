@@ -10,7 +10,7 @@ public struct ManualOverride: Sendable {
     public mutating func select(_ mode: DisplayMode, at now: Date = Date(), minutes: Int? = nil) {
         self.mode = mode
         startedAt = mode == .automatic ? nil : now
-        expiresAt = mode == .busy ? minutes.flatMap { $0 > 0 ? now.addingTimeInterval(Double($0) * 60) : nil } : nil
+        expiresAt = mode == .busy || mode == .available ? minutes.flatMap { $0 > 0 ? now.addingTimeInterval(Double($0) * 60) : nil } : nil
     }
 
     @discardableResult public mutating func expire(at now: Date = Date()) -> Bool {

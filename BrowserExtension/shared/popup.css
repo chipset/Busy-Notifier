@@ -1,0 +1,4 @@
+body { width: 300px; padding: 14px; font: 13px -apple-system, system-ui, sans-serif; color-scheme: light dark; }
+h1 { font-size: 19px; margin-top: 0; }
+button { padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+.help { color: GrayText; font-size: 12px; line-height: 1.45; }

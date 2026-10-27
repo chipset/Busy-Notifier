@@ -8,7 +8,7 @@ Requires Xcode/Swift 6 or newer. Build a universal application and ZIP archive:
 ./scripts/package-release.sh
 ```
 
-This produces `dist/Meeting Busy.app`, `dist/MeetingBusy-0.0.2-universal.zip`, and a `.sha256` checksum file alongside the archive. The default build contains both `arm64` and `x86_64` code and targets macOS 13 or newer. It is ad hoc signed and **not notarized**. Users may need the per-app macOS opening exception described in [USER_GUIDE.md](USER_GUIDE.md).
+This produces `dist/Meeting Busy.app`, `dist/MeetingBusy-0.0.3-universal.zip`, and a `.sha256` checksum file alongside the archive. The default build contains both `arm64` and `x86_64` code and targets macOS 13 or newer. It is ad hoc signed and **not notarized**. Users may need the per-app macOS opening exception described in [USER_GUIDE.md](USER_GUIDE.md).
 
 For a faster build for the current Mac only:
 
@@ -40,17 +40,18 @@ The script fails before building if the required configuration is missing. If Ap
 
 ```sh
 swift test
+node --test BrowserExtension/tests/*.test.cjs
 codesign --verify --deep --strict "dist/Meeting Busy.app"
 lipo -archs "dist/Meeting Busy.app/Contents/MacOS/MeetingBusy"
 cd dist
-shasum -a 256 -c MeetingBusy-0.0.2-universal.zip.sha256
+shasum -a 256 -c MeetingBusy-0.0.3-universal.zip.sha256
 ```
 
 Complete the [manual acceptance checks](MANUAL_TESTS.md) on actual conferencing clients. Cross-compilation verifies the Intel slice builds, but does not substitute for running it on an Intel Mac. Notification delivery, global hotkeys, and screen-sharing behavior also need interactive testing.
 
 ## Publish to GitHub
 
-Change `CFBundleShortVersionString` and increment `CFBundleVersion` in `Resources/Info.plist` for a release, then rebuild and validate. Commit the source and documentation, push them, and create a GitHub release in `chipset/Busy-Notifier` using the tag `v0.0.2` for this version. Attach the ZIP and its checksum, and state clearly whether it is ad hoc signed or Developer ID signed and notarized. Build outputs stay excluded from Git.
+Change `CFBundleShortVersionString` and increment `CFBundleVersion` in `Resources/Info.plist` for a release, then rebuild and validate. Commit the source and documentation, push them, and create a GitHub release in `chipset/Busy-Notifier` using the tag `v0.0.3` for this version. Attach the ZIP and its checksum, and state clearly whether it is ad hoc signed or Developer ID signed and notarized. Build outputs stay excluded from Git.
 
 After committing the current source and `RELEASE_NOTES.md`, the publishing helper can perform these steps from a terminal with GitHub access:
 
@@ -58,8 +59,10 @@ After committing the current source and `RELEASE_NOTES.md`, the publishing helpe
 ./scripts/publish-release.sh
 ```
 
-It requires the GitHub CLI (`gh`) to be installed and authenticated, a clean `main` branch, and the expected GitHub origin. It checks for existing tags/releases, fetches remote main, verifies the remote history is contained locally, runs tests, rebuilds the universal package, pushes main and an annotated version tag, then creates a regular GitHub release with the ZIP and checksum. It never force-pushes or replaces an existing release. Publishing is not automatic during normal builds. Use `gh auth login` first if the CLI is not authenticated.
+Its checks also require Node.js and Python 3. It requires the GitHub CLI (`gh`) to be installed and authenticated, a clean `main` branch, and the expected GitHub origin. It checks for existing tags/releases, fetches remote main, verifies the remote history is contained locally, runs tests, rebuilds the universal package, pushes main and an annotated version tag, then creates a regular GitHub release with the ZIP and checksum. It never force-pushes or replaces an existing release. Publishing is not automatic during normal builds. Use `gh auth login` first if the CLI is not authenticated.
 
 The in-app updater reads GitHub's latest published stable release. Drafts and prereleases are not offered, and merely pushing a Git commit does not create an update. Users review the release page and install manually; the app never downloads or replaces its own executable. API behavior is documented in [GitHub's release API](https://docs.github.com/en/rest/releases/releases#get-the-latest-release).
 
 No publishing or notarization is performed by simply running the application. The release script only uploads an archive to Apple when explicitly invoked with `--notarize`; publishing the resulting files to GitHub is a separate action.
+
+The universal app also contains a universal native messaging host and both browser extension variants. Browser extensions remain unpacked/temporary developer installs; app notarization does not publish or sign them for browser stores. Keep `BrowserExtension/identity.json` and the Chromium manifest key stable so existing native-host allowlists continue to match. Browser background tests require Node.js; optional end-to-end browser tests are documented in `BrowserExtension/tests/README.md`.

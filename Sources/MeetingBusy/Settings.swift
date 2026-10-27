@@ -66,7 +66,7 @@ final class SettingsController: NSObject, NSWindowDelegate {
     private let window: NSWindow
     private let store: AppearanceStore
 
-    init(store: AppearanceStore, features: FeatureSettings, diagnostics: DiagnosticsController, updates: UpdateChecker, notifications: NotificationController) {
+    init(store: AppearanceStore, features: FeatureSettings, diagnostics: DiagnosticsController, updates: UpdateChecker, notifications: NotificationController, bridge: BrowserBridgeController) {
         self.store = store
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 650),
                           styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
@@ -74,7 +74,7 @@ final class SettingsController: NSObject, NSWindowDelegate {
         window.title = "Meeting Busy Settings"
         window.isReleasedWhenClosed = false
         window.delegate = self
-        window.contentView = NSHostingView(rootView: SettingsView(store: store, features: features, diagnostics: diagnostics, updates: updates, notifications: notifications))
+        window.contentView = NSHostingView(rootView: SettingsView(store: store, features: features, diagnostics: diagnostics, updates: updates, notifications: notifications, bridge: bridge))
         window.center()
     }
 
@@ -92,6 +92,7 @@ private struct SettingsView: View {
     let diagnostics: DiagnosticsController
     let updates: UpdateChecker
     let notifications: NotificationController
+    let bridge: BrowserBridgeController
     @State private var selectedPreset: UUID?
     @State private var presetName = ""
 
@@ -174,7 +175,7 @@ private struct SettingsView: View {
                     Button("Move indicator using the keyboard…") { store.onKeyboardMove?() }
                 }
                 Toggle("Show indicator preview", isOn: $store.showPreview)
-                Text("Preview is manual and stays visible until unchecked or Settings is closed. It stays hidden while presenting.")
+                Text("Preview is manual and stays visible until unchecked or Settings is closed. It stays hidden while Presenting or Available is selected.")
                     .font(.caption).foregroundStyle(.secondary)
                 Button("Restore default appearance") { store.appearance = IndicatorAppearance() }
                 Divider()
@@ -188,6 +189,7 @@ private struct SettingsView: View {
                 Text("If access is denied after an update, remove Meeting Busy from Accessibility in System Settings, add this copy again, and reopen it.")
                     .font(.caption).foregroundStyle(.secondary)
                 FeatureSettingsView(features: features, diagnostics: diagnostics, updates: updates, notifications: notifications)
+                BrowserIntegrationSettings(features: features, bridge: bridge)
             }.padding(22)
         }.frame(width: 500, height: 650)
     }

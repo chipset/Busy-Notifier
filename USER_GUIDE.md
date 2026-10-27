@@ -29,16 +29,16 @@ This creates an exception for that app. Do not disable Gatekeeper system-wide or
 
 ## Grant Accessibility access
 
-The security exception above and Accessibility permission are separate approvals. Automatic meeting detection needs **Accessibility** permission to inspect other apps' user interfaces. This is a broad permission that can allow an app to read and control other apps, so grant it only to a copy you trust. Meeting Busy uses it to inspect supported meeting apps and browser controls. [Apple explains Accessibility access here](https://support.apple.com/guide/mac-help/allow-accessibility-apps-to-access-your-mac-mh43185/mac).
+The security exception above and Accessibility permission are separate approvals. Automatic native-client and Safari detection needs **Accessibility** permission to inspect other apps' user interfaces. This is a broad permission that can allow an app to read and control other apps, so grant it only to a copy you trust. Meeting Busy uses it to inspect supported meeting apps and browser controls. [Apple explains Accessibility access here](https://support.apple.com/guide/mac-help/allow-accessibility-apps-to-access-your-mac-mh43185/mac).
 
 1. In Meeting Busy's welcome dialog, select **Grant Accessibility access**. You can also choose **Grant Accessibility access…** from its menu bar menu.
 2. In **System Settings → Privacy & Security → Accessibility**, turn on **Meeting Busy**.
 3. If it is missing, click **+**, select `/Applications/Meeting Busy.app`, and click **Open**, then enable its switch.
 4. Quit and reopen Meeting Busy if its menu still says **Setup needed: Accessibility access**.
 
-This implementation does not request microphone, camera, screen recording, Full Disk Access, or browser scripting permission. It does not record meeting audio/video or send meeting information over the network. Optional update checks contact GitHub, and optional reminders request macOS Notifications permission. Appearance settings are saved locally. Detection details show application paths and scan statistics, so review that text before sharing it for troubleshooting.
+This implementation does not request microphone, camera, screen recording, or Full Disk Access permission. The optional browser extension separately requests access to supported meeting sites and script injection there. It does not record meeting audio/video or send meeting information over the network. Optional update checks contact GitHub, and optional reminders request macOS Notifications permission. Appearance settings are saved locally. Detection details show application paths and scan statistics, so review that text before sharing it for troubleshooting.
 
-You can revoke access at any time by turning off Meeting Busy in the same Accessibility settings. Automatic detection then stops; manual Force Busy and explicit previews can still show the indicator.
+You can revoke access at any time by turning off Meeting Busy in the same Accessibility settings. Accessibility detection then stops; a connected browser extension can still detect browser meetings; manual Force Busy and explicit previews can still show the indicator.
 
 ## Tell whether the app is running
 
@@ -51,6 +51,7 @@ Click the menu bar symbol and read the first line:
 | In a meeting: Zoom, Teams, Webex, or Google Meet | A supported meeting was detected. |
 | No active meeting detected | The app is running and currently has no meeting evidence. |
 | Setup needed: Accessibility access | Automatic detection cannot run until permission is granted. |
+| Available — hide indicator | You have temporarily hidden the indicator; detection continues. |
 | Busy — manual override | Force Busy is selected; the indicator can stay visible after a meeting ends. |
 | Preview… | You explicitly enabled a preview; its visibility does not mean a meeting was detected. |
 | Presenting / Screen sharing detected | The indicator is hidden. |
@@ -64,13 +65,25 @@ The camera symbol is filled while the indicator is visible. A presentation symbo
 
 Select **Automatic** from the menu bar menu for normal use. It checks every two seconds while awake. If a previous scan is still running, that tick is skipped, so detection can take longer. Joining or leaving a meeting takes effect after a completed scan.
 
-Opening a meeting app or its prejoin screen should not show the indicator. English meeting controls are currently supported. Hidden controls, inactive browser tabs, and changes to meeting clients can cause missed detections.
+Opening a meeting app or its prejoin screen should not show the indicator. English meeting controls are currently supported. Hidden controls and changes to meeting clients can cause missed detections. The optional browser extension improves inactive-tab detection.
 
 Use **Force Busy** to display your status manually. Return to **Automatic** when finished. Selecting a detection mode also stops any preview.
 
 For a temporary indicator, choose **Busy for… → 15, 30, or 60 minutes**. The menu shows when it ends and then returns to Automatic, including after sleeping through the deadline. Changing modes cancels the timer. Manual modes and timers reset to Automatic when the app is relaunched.
 
 The menu shows the last completed scan time and duration. Settings' detection details also identify the reason for a meeting match, such as active call controls or your stop-sharing control. A stale positive result expires if scans stop completing; closing or leaving a call clears its evidence on the next scan.
+
+## Hide a false-positive indicator with Available
+
+Choose **Available — hide indicator** to hide the box immediately without marking yourself Presenting. Choose **Available for… → 15, 30, or 60 minutes** for automatic expiry. The menu bar shows Available and the menu shows its end time. Detection continues in the background, and previews are hidden too. Return to **Automatic** to end the override early. At expiry, the current meeting state determines visibility. Overrides reset to Automatic after relaunch.
+
+## Detect meetings in background browser tabs
+
+Open **Settings → Browser integration**, enable the extension setting, select your browser, and click **Install/update bridge**. Then click **Open extension folder** and load that folder through your browser's extension manager. Follow the [complete browser installation and privacy instructions](BrowserExtension/README.md).
+
+Chrome, Edge, Brave, and Chromium use an unpacked developer extension. Firefox uses a temporary unsigned add-on that must be reloaded after each browser restart. Safari continues to use Accessibility. Place the app in Applications before bridge installation. After an update or move, reinstall the bridge and reload the extension. Managed browsers may restrict developer extensions.
+
+The extension can detect supported browser controls without Accessibility; native clients still need it. It sends only local provider/call/sharing flags with an ephemeral tab/frame ID. Its five-second background heartbeat is independent of inactive-tab timers; the app reads state every two seconds. Tab close/navigation clears its contribution. Crashed/disconnected state expires after 20 seconds plus the next app poll. Frozen or discarded pages and changed controls may still cause misses. Test your client, and choose Presenting before sharing for immediate hiding.
 
 ## Pause detection or choose meeting services
 
@@ -184,13 +197,13 @@ If you cannot find the app in the file picker, press **Command–Shift–G**, en
 
 **No indicator during a meeting:** select Automatic, check Accessibility permission, and bring the meeting tab or window into view. Open **Settings… → Meeting detection → Detection details** to see permission status, readable window/control counts, and scan failures. Force Busy is available while troubleshooting.
 
-**Indicator remains after leaving:** read the menu status. Stop any preview and select Automatic to clear a manual override. If it says Setup needed, repair Accessibility permission; that status does not mean a meeting was detected. If it still reports **In a meeting: Zoom** after a completed scan, report the app version and detection details to the maintainer.
+**Indicator remains after leaving:** choose **Available** or **Available for…** to hide it while troubleshooting. Read the menu status. Stop any preview and select Automatic to clear a manual override. If it says Setup needed, repair Accessibility permission; that status does not mean a meeting was detected. If it still reports **In a meeting: Zoom** after a completed scan, report the app version and detection details to the maintainer.
 
 **No menu bar symbol:** reopen the installed app. If the app cannot start, revisit the first-launch security steps and check that the build supports your Mac's processor.
 
 ## Uninstall
 
-Turn off Launch at login, quit Meeting Busy, remove its entry from Accessibility settings, then move the application from Applications to the Trash. Appearance preferences may remain saved locally.
+Remove each browser bridge in Settings and remove the extension from each browser (see the browser guide). Turn off Launch at login, quit Meeting Busy, remove its entry from Accessibility settings, then move the application from Applications to the Trash. Appearance preferences may remain saved locally.
 
 If you want to remove diagnostic history, use Clear logs before quitting or delete `~/Library/Logs/MeetingBusy` afterward. Exported copies are separate files. You can also revoke optional notification permission in System Settings → Notifications.
 

@@ -22,6 +22,7 @@ The application icon is a white camera with a busy badge on a red gradient. `scr
 ## Behavior
 
 - **Automatic:** polls every two seconds for active call controls, such as Leave call or End meeting. If the previous scan is still running, that tick is skipped, so detection can take longer with slow or numerous applications. Polling pauses during sleep. Merely opening Teams, Webex, a calendar invitation, or a meeting's prejoin page does not trigger the indicator.
+- **Available — hide indicator:** hides a false-positive indicator without marking you Presenting. **Available for…** offers 15, 30, or 60 minutes, then returns to Automatic. Detection continues; Available also suppresses previews. Select Automatic to end it early. Manual overrides reset on app relaunch.
 - **Force Busy:** shows the indicator manually, including when a client does not expose its call controls.
 - **Busy for…:** shows Busy for 15, 30, or 60 minutes, then returns to Automatic. The menu shows the end time; sleep does not extend the deadline.
 - **Pause detection:** stops automatic scans for 15 minutes, one hour, or until resumed. Pauses survive relaunch and expire across sleep. Force Busy, manual Presenting, and explicit previews remain available. Pausing also stops automatic sharing detection, so use manual Presenting before sharing.
@@ -48,13 +49,17 @@ Stop sharing / Stop presenting controls automatically hide the indicator. Only y
 
 ## Detection coverage and limits
 
+Optional **Settings → Browser integration** adds a local native-messaging extension for Chrome, Edge, Brave, Chromium, and Firefox. It detects supported call controls in inactive tabs without needing Accessibility permission. Native clients and Safari still need Accessibility. Follow the [browser setup instructions](BrowserExtension/README.md); enabling the setting alone does not install the extension. Firefox currently uses temporary unsigned add-on loading and must be reloaded after browser restart. This is a developer extension, not a store-published extension.
+
+The extension sends only provider and call/sharing flags with an ephemeral tab/frame ID to the bundled local host. Background heartbeats run every five seconds; the app reads them every two seconds. On disconnect, stale browser evidence expires after 20 seconds. Pause and service switches apply to both detection paths. No meeting content or URLs are written to the bridge. Frozen/discarded pages and changed controls can still prevent detection; live-client testing is necessary.
+
 Native clients: Microsoft Teams (classic and current bundle IDs), Webex Meetings, Webex, and Zoom Workplace (`us.zoom.xos`). Browser meetings: Google Meet, Teams, Webex, and Zoom in Safari, Chrome, Edge, Firefox, Brave, and Arc, when the browser exposes meeting controls through macOS Accessibility. Zoom detection reads host/participant call controls, including Stop Share. Enabled Meeting menu commands only corroborate an actual meeting window and its controls; they cannot keep Busy active on their own after a call ends. A recognized Zoom meeting window with multiple meeting toolbar controls also counts when the Leave button is hidden. A window title by itself does not count.
 
-Detection currently recognizes **English control labels**. It inspects meeting application windows and web accessibility subtrees with a verified meeting-service URL, not arbitrary page text. It does not activate tabs or bring meeting windows to the front. Inactive browser tabs, minimized windows, hidden call toolbars, and client updates can prevent detection. Use Force Busy if needed.
+Detection currently recognizes **English control labels**. It inspects meeting application windows and web accessibility subtrees with a verified meeting-service URL, not arbitrary page text. It does not activate tabs or bring meeting windows to the front. Without the extension, inactive browser tabs can be missed. Minimized windows, frozen pages, hidden call toolbars, and client updates can prevent detection. Use Force Busy if needed.
 
 Automatic presentation hiding is best effort. There may be a delay while the app reads sharing controls, and controls in an inactive tab or inaccessible toolbar can be missed. **For immediate hiding before sharing, choose I’m presenting.** This version cannot guarantee the indicator will never appear in captured frames when relying solely on automatic detection. Test your particular client before using it in a live presentation.
 
-Accessibility reads happen concurrently across apps in background tasks with time and traversal limits. Attribute reads are batched, and breadth-first searches reach toolbars before deep chat history. A menu status reports incomplete scans. Old positive results expire after 12 seconds if no new scan result arrives. The app requests no microphone, camera, screen recording, or browser scripting permission. It records no meeting content. Only optional/manual update checks contact GitHub; notifications are separately opt-in.
+Accessibility reads happen concurrently across apps in background tasks with time and traversal limits. Attribute reads are batched, and breadth-first searches reach toolbars before deep chat history. A menu status reports incomplete scans. Old positive results expire after 12 seconds if no new scan result arrives. The app requests no microphone, camera, or screen recording permission. The optional browser extension requests access to supported meeting sites and script injection there. It records no meeting content. Only optional/manual update checks contact GitHub; notifications are separately opt-in.
 
 Diagnostic logging defaults to state changes. Settings can disable it or enable every-scan details, open the folder, export, or clear logs. Logs are structured local JSON Lines under `~/Library/Logs/MeetingBusy`, limited to a current file plus three backups at 512 KiB each. They contain event times, services, detection signals, permission state, error codes, and scan durations. No titles, participant names, chats, URLs, indicator text, or user paths are logged. Meeting activity times may still be sensitive; exports are only saved where the user chooses and are never uploaded automatically.
 
@@ -76,6 +81,7 @@ A command-line diagnostic is also available (it reports the permissions of that 
 
 ```sh
 swift test
+node --test BrowserExtension/tests/*.test.cjs
 ```
 
 The unit tests cover call/prejoin distinctions, service URL validation, actionable controls versus page text, presentation controls, permission state, overrides, Zoom post-call/menu behavior, stale evidence, timers, release versions/URLs, log rotation and schemas, and indicator geometry/persistence. They do not simulate real conferencing clients. See [manual acceptance checks](MANUAL_TESTS.md) for the live-client and interactive release checks that remain necessary.

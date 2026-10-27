@@ -32,6 +32,7 @@ public enum DetectionSignal: String, Codable, Sendable {
     case sharingControl = "Your stop-sharing control"
     case zoomToolbar = "Zoom meeting window and toolbar"
     case zoomMenu = "Zoom meeting window and enabled Meeting command"
+    case browserTab = "Browser extension meeting controls"
 }
 
 public enum Detection {
@@ -108,6 +109,7 @@ public enum DisplayMode: String, CaseIterable, Sendable, Codable {
     case automatic = "Automatic"
     case busy = "Force Busy"
     case presenting = "I’m presenting — hide indicator"
+    case available = "Available — hide indicator"
 }
 
 public enum IndicatorPolicy {
@@ -115,24 +117,25 @@ public enum IndicatorPolicy {
         reason(mode: mode, evidence: evidence, trusted: trusted).showsIndicator
     }
 
-    public static func reason(mode: DisplayMode, evidence: [MeetingEvidence], trusted: Bool, preview: Bool = false, paused: Bool = false, servicesEnabled: Bool = true) -> IndicatorReason {
+    public static func reason(mode: DisplayMode, evidence: [MeetingEvidence], trusted: Bool, preview: Bool = false, paused: Bool = false, servicesEnabled: Bool = true, browserConnected: Bool = false) -> IndicatorReason {
+        if mode == .available { return .available }
         if mode == .presenting || evidence.contains(where: \.isPresenting) { return .presenting }
         if mode == .busy { return .forcedBusy }
         if paused { return preview ? .preview : .paused }
         if !servicesEnabled { return preview ? .preview : .disabled }
-        if trusted && !evidence.isEmpty { return .meeting }
+        if evidence.contains(where: { trusted || $0.signal == .browserTab }) { return .meeting }
         if preview { return .preview }
-        return trusted ? .idle : .setupNeeded
+        return trusted || browserConnected ? .idle : .setupNeeded
     }
 }
 
 public enum IndicatorReason: String, Equatable, Sendable, Codable {
-    case presenting, forcedBusy, meeting, preview, idle, setupNeeded, paused, disabled
+    case presenting, forcedBusy, meeting, preview, idle, setupNeeded, paused, disabled, available
 
     public var showsIndicator: Bool {
         switch self {
         case .forcedBusy, .meeting, .preview: true
-        case .presenting, .idle, .setupNeeded, .paused, .disabled: false
+        case .presenting, .idle, .setupNeeded, .paused, .disabled, .available: false
         }
     }
 }

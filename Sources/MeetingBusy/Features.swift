@@ -13,6 +13,9 @@ private func saveValue<T: Encodable>(_ value: T, key: String) {
 
 @MainActor
 final class FeatureSettings: ObservableObject {
+    @Published var browserIntegrationEnabled = UserDefaults.standard.bool(forKey: "browserIntegrationEnabled") {
+        didSet { UserDefaults.standard.set(browserIntegrationEnabled, forKey: "browserIntegrationEnabled"); onChange?() }
+    }
     @Published var enabledServices = storedValue(Set<MeetingService>.self, key: "enabledServices", fallback: Set(MeetingService.allCases)) {
         didSet { saveValue(enabledServices, key: "enabledServices"); onChange?() }
     }

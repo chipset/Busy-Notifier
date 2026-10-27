@@ -45,13 +45,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let updates = UpdateChecker()
     private let notifications = NotificationController()
     private let hotKeys = HotKeyController()
-    private lazy var settingsController = SettingsController(store: appearance, features: features, diagnostics: diagnostics, updates: updates, notifications: notifications)
+    private let browserBridge = BrowserBridgeController()
+    private lazy var settingsController = SettingsController(store: appearance, features: features, diagnostics: diagnostics, updates: updates, notifications: notifications, bridge: browserBridge)
     private lazy var keyboardMovement = KeyboardMovementController(store: appearance)
     private let reportController = ReportController()
     private var timer: Timer?
     private var scanning = false
     private var tracker = EvidenceTracker()
-    private var evidence: [MeetingEvidence] { tracker.evidence }
+    private var browserEvidence: [MeetingEvidence] = []
+    private var evidence: [MeetingEvidence] { (trusted ? tracker.evidence : []) + browserEvidence }
     private var trusted = false
     private var incomplete = false
     private var manualOverride = ManualOverride()
@@ -66,6 +68,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var configuredShortcutBindings: ShortcutConfiguration?
     private var configuredServices: Set<MeetingService>?
     private var configuredPause: DetectionPause?
+    private var configuredBrowserIntegration: Bool?
     private var lastScanFailureCodes: [Int] = []
     private var notificationConfiguration = ""
 
@@ -132,6 +135,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             lastTrusted = trusted
             diagnostics.record(DiagnosticEntry(event: .permissionChanged, trusted: trusted))
         }
+        browserBridge.configure(enabled: features.browserIntegrationEnabled, paused: features.pause.isPaused, services: features.enabledServices)
+        browserEvidence = browserBridge.evidence()
         guard !features.pause.isPaused, !features.enabledServices.isEmpty else {
             tracker.clear()
             appearance.lastCheckDescription = features.pause.isPaused ? "Automatic scans are paused." : "Enable a meeting service in Settings to start scanning."
@@ -142,8 +147,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             scanGeneration += 1
             tracker.clear()
             lastScanFailureCodes = []
-            appearance.lastCheckDescription = "Automatic detection is waiting for Accessibility permission."
-            appearance.detectionDetails = "Accessibility access is denied.\nUse Grant Accessibility access from the menu.\nIf this app was rebuilt, remove its old Accessibility entry and add this copy again.\nApp: \(Bundle.main.bundlePath)"
+            appearance.lastCheckDescription = browserBridge.connected ? "Browser bridge checked \(Date().formatted(date: .omitted, time: .standard)); native Accessibility checks are off." : "Automatic native detection is waiting for Accessibility permission."
+            appearance.detectionDetails = "Accessibility access is denied.\nBrowser bridge: \(browserBridge.status)\nUse Grant Accessibility access for native client detection, or connect the browser extension for browser meetings.\nApp: \(Bundle.main.bundlePath)"
             updateUI()
             return
         }
@@ -182,7 +187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                                      scanMilliseconds: milliseconds, failureCodes: result.failureCodes))
             let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development"
             let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
-            self.appearance.detectionDetails = "Version: \(version) (build \(build))\nApp: \(Bundle.main.bundlePath)\nAccessibility access: granted\n" + result.details.joined(separator: "\n")
+            self.appearance.detectionDetails = "Version: \(version) (build \(build))\nApp: \(Bundle.main.bundlePath)\nAccessibility access: granted\nBrowser bridge: \(self.browserBridge.status)\n" + result.details.joined(separator: "\n")
             self.updateUI()
         }
     }
@@ -190,7 +195,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func updateUI() {
         let previewRequested = appearance.showPreview || Date() < previewUntil
         let reason = IndicatorPolicy.reason(mode: mode, evidence: evidence, trusted: trusted, preview: previewRequested,
-                                           paused: features.pause.isPaused, servicesEnabled: !features.enabledServices.isEmpty)
+                                           paused: features.pause.isPaused, servicesEnabled: !features.enabledServices.isEmpty, browserConnected: browserBridge.connected)
         if lastLoggedReason != reason || lastLoggedEvidence != evidence {
             lastLoggedReason = reason
             lastLoggedEvidence = evidence
@@ -207,18 +212,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             state = mode == .presenting ? "Presenting — indicator hidden (\(minutes) min)" : "Screen sharing detected — indicator hidden"
         case .forcedBusy:
             state = manualOverride.expiresAt.map { "Busy — until \($0.formatted(date: .omitted, time: .shortened))" } ?? "Busy — manual override"
+        case .available:
+            state = manualOverride.expiresAt.map { "Available — indicator hidden until \($0.formatted(date: .omitted, time: .shortened))" } ?? "Available — indicator hidden until Automatic"
         case .meeting: state = "In a meeting: " + Set(evidence.map { $0.service.rawValue }).sorted().joined(separator: ", ")
         case .preview:
             state = features.pause.isPaused ? "Preview — detection paused" : (trusted ? "Preview — no meeting detected" : "Preview — Accessibility setup needed")
-        case .setupNeeded: state = "Setup needed: Accessibility access"
-        case .idle: state = incomplete ? "Unable to inspect some meeting windows" : "No active meeting detected"
+        case .setupNeeded: state = features.browserIntegrationEnabled ? "Connect browser extension or grant Accessibility access" : "Setup needed: Accessibility access"
+        case .idle: state = !trusted && browserBridge.connected ? "No browser meeting detected — native Accessibility is off" : (incomplete ? "Unable to inspect some meeting windows" : "No active meeting detected")
         case .paused: state = features.pause.resumeAt.map { "Detection paused until \($0.formatted(date: .omitted, time: .shortened))" } ?? "Detection paused until resumed"
         case .disabled: state = "All meeting services are disabled"
         }
         appearance.detectionStatus = state
         statusItem.button?.toolTip = "Meeting Busy: " + state
-        statusItem.button?.title = mode == .presenting ? " Presenting" : (features.pause.isPaused ? " Paused" : "")
-        let symbol = reason == .paused ? "pause.circle" : (reason == .disabled ? "video.slash" : (presenting ? "rectangle.on.rectangle.slash" : (visible ? "video.fill" : "video")))
+        statusItem.button?.title = mode == .available ? " Available" : (mode == .presenting ? " Presenting" : (features.pause.isPaused ? " Paused" : ""))
+        let symbol = reason == .available ? "checkmark.circle" : (reason == .paused ? "pause.circle" : (reason == .disabled ? "video.slash" : (presenting ? "rectangle.on.rectangle.slash" : (visible ? "video.fill" : "video"))))
         statusItem.button?.image = NSImage(systemSymbolName: symbol, accessibilityDescription: state)
         let menu = NSMenu()
         let status = NSMenuItem(title: state, action: nil, keyEquivalent: "")
@@ -233,7 +240,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             item.target = self
             item.tag = index
             item.state = choice == mode ? .on : .off
-            if features.shortcutsEnabled && features.shortcutStatus == "Global shortcuts are active." {
+            if features.shortcutsEnabled && features.shortcutStatus == "Global shortcuts are active." && index < features.shortcuts.bindings.count {
                 let binding = features.shortcuts.bindings[index]
                 item.keyEquivalent = binding.menuKey
                 item.keyEquivalentModifierMask = binding.menuModifiers
@@ -248,6 +255,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         timed.submenu = durations
         menu.addItem(timed)
+        let available = NSMenuItem(title: "Available for…", action: nil, keyEquivalent: "")
+        let availableDurations = NSMenu()
+        for minutes in [15, 30, 60] {
+            let item = add("\(minutes) minutes", action: #selector(timedAvailable(_:)), to: availableDurations)
+            item.tag = minutes
+        }
+        available.submenu = availableDurations
+        menu.addItem(available)
         if features.pause.isPaused { add("Resume detection", action: #selector(resumeDetection), to: menu) }
         let pauseItem = NSMenuItem(title: "Pause detection", action: nil, keyEquivalent: "")
         let pauseMenu = NSMenu()
@@ -310,6 +325,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func timedBusy(_ sender: NSMenuItem) { changeMode(.busy, minutes: sender.tag) }
+    @objc private func timedAvailable(_ sender: NSMenuItem) { changeMode(.available, minutes: sender.tag) }
 
     private func changeMode(_ newMode: DisplayMode, minutes: Int? = nil, event: DiagnosticEvent = .modeChanged, refresh: Bool = true) {
         manualOverride.select(newMode, minutes: minutes)
@@ -323,6 +339,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func configureFeatures() {
+        if configuredBrowserIntegration != features.browserIntegrationEnabled {
+            configuredBrowserIntegration = features.browserIntegrationEnabled
+            browserEvidence = []
+        }
+        browserBridge.configure(enabled: features.browserIntegrationEnabled && !suspended, paused: features.pause.isPaused, services: features.enabledServices)
         if configuredServices != features.enabledServices || configuredPause != features.pause {
             if configuredServices != nil, configuredServices != features.enabledServices {
                 diagnostics.record(DiagnosticEntry(event: .servicesChanged))
@@ -334,6 +355,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             configuredPause = features.pause
             scanGeneration += 1
             tracker.clear()
+            browserEvidence = []
             lastScanFailureCodes = []
             incomplete = false
             appearance.lastCheckDescription = features.pause.isPaused ? "Automatic scans are paused." : "Waiting for the next scan of enabled services."
@@ -405,12 +427,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showReport() {
         let reason = IndicatorPolicy.reason(mode: mode, evidence: evidence, trusted: trusted,
                                            preview: appearance.showPreview || Date() < previewUntil,
-                                           paused: features.pause.isPaused, servicesEnabled: !features.enabledServices.isEmpty)
+                                           paused: features.pause.isPaused, servicesEnabled: !features.enabledServices.isEmpty, browserConnected: browserBridge.connected)
         let report = DetectionReport(version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development",
                                      build: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
                                      osVersion: ProcessInfo.processInfo.operatingSystemVersionString, mode: mode, reason: reason, trusted: trusted,
                                      paused: features.pause.isPaused, enabledServices: features.enabledServices, evidence: evidence,
-                                     lastScanAt: tracker.lastCompletedAt, failureCodes: lastScanFailureCodes)
+                                     lastScanAt: [tracker.lastCompletedAt, browserBridge.lastObservedAt].compactMap { $0 }.max(), failureCodes: lastScanFailureCodes)
         reportController.show(report)
         diagnostics.record(DiagnosticEntry(event: .reportPrepared, state: reason))
     }
@@ -445,7 +467,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.messageText = "Meeting Busy"
-        alert.informativeText = "Shows a red Busy box at the upper left of your main display during Webex, Teams, Google Meet, and Zoom calls.\n\nEnable Accessibility access so Meeting Busy can read meeting buttons. No microphone, camera, or screen recording access is needed.\n\nThe indicator hides when a Stop sharing, Stop Share, or Stop presenting control is detected. Before presenting, choose ‘I’m presenting’ from the menu bar for immediate hiding; return to Automatic afterward.\n\nDetection currently uses English controls. Background browser tabs and some client versions may not expose their controls. Use Force Busy when needed."
+        alert.informativeText = "Shows a red Busy box at the upper left of your main display during Webex, Teams, Google Meet, and Zoom calls.\n\nEnable Accessibility access so Meeting Busy can read meeting buttons. No microphone, camera, or screen recording access is needed.\n\nThe indicator hides when a Stop sharing, Stop Share, or Stop presenting control is detected. Before presenting, choose ‘I’m presenting’ from the menu bar for immediate hiding; return to Automatic afterward.\n\nDetection currently uses English controls. For inactive browser tabs, set up the optional extension in Settings → Browser integration. Some client versions may still hide their controls. Use Force Busy for missed calls or Available to hide a false positive."
         alert.addButton(withTitle: "Grant Accessibility access")
         alert.addButton(withTitle: "Done")
         if alert.runModal() == .alertFirstButtonReturn { grantAccess() }
@@ -455,13 +477,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         suspended = true
         scanGeneration += 1
         tracker.clear()
+        browserEvidence = []
+        browserBridge.configure(enabled: false, paused: features.pause.isPaused, services: features.enabledServices)
         diagnostics.record(DiagnosticEntry(event: .sleep))
         previewUntil = .distantPast
         panel.update(visible: false)
     }
-    @objc private func didWake() { suspended = false; diagnostics.record(DiagnosticEntry(event: .wake)); poll() }
+    @objc private func didWake() { suspended = false; configureFeatures(); diagnostics.record(DiagnosticEntry(event: .wake)); poll() }
     @objc private func screenChanged() { updateUI() }
     func applicationWillTerminate(_ notification: Notification) {
+        browserBridge.configure(enabled: false, paused: features.pause.isPaused, services: features.enabledServices)
         hotKeys.unregister()
         notifications.schedulePresentation(startedAt: nil, minutes: features.reminderMinutes, enabled: false)
         diagnostics.record(DiagnosticEntry(event: .terminated))

@@ -39,7 +39,9 @@ done <<< "$existing_releases"
 export CLANG_MODULE_CACHE_PATH="$PWD/.build/ModuleCache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$CLANG_MODULE_CACHE_PATH"
 swift test --disable-sandbox --cache-path "$PWD/.build/cache" --config-path "$PWD/.build/config" --security-path "$PWD/.build/security"
+node --test BrowserExtension/tests/*.test.cjs
 ./scripts/package-release.sh
+python3 scripts/test-browser-host.py
 archive="dist/MeetingBusy-$version-universal.zip"
 checksum="$archive.sha256"
 git push -u origin main

@@ -1,0 +1,53 @@
+{
+  "manifest_version": 3,
+  "name": "Meeting Busy — background meeting detection",
+  "version": "0.0.3",
+  "description": "Reports meeting and screen-sharing state from supported meeting tabs to the local Meeting Busy app.",
+  "permissions": [
+    "nativeMessaging",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://meet.google.com/*",
+    "https://teams.microsoft.com/*",
+    "https://teams.live.com/*",
+    "https://teams.cloud.microsoft/*",
+    "https://*.webex.com/*",
+    "https://webex.com/*",
+    "https://*.zoom.us/*",
+    "https://zoom.us/*",
+    "https://*.zoom.com/*",
+    "https://zoom.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://meet.google.com/*",
+        "https://teams.microsoft.com/*",
+        "https://teams.live.com/*",
+        "https://teams.cloud.microsoft/*",
+        "https://*.webex.com/*",
+        "https://webex.com/*",
+        "https://*.zoom.us/*",
+        "https://zoom.us/*",
+        "https://*.zoom.com/*",
+        "https://zoom.com/*"
+      ],
+      "js": [
+        "detector.js",
+        "content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "action": {
+    "default_title": "Meeting Busy",
+    "default_popup": "popup.html"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1+Fec5yibX/KQzKwr01jVCXJCTQz2nXAKjuxjhj77U7ZGfKDv0IZihd57WwPMTwYWvfZfApvwJKaf+Z+EzcUZuqQ62q04thwOo39zmsj6TrfE8CY6nJiZ1nJ+Rw++BhSDZ3rcjJgn1hTAIjPDdGuaFu/cinzKnHbRwNthAGuXjTWXhF/22M6dG0mjd4+5UtlFORNYmBnCcPeOXEwv6ibS/4ledh8ayoXTSoq2GM3PvFWlvNsVJSXfacUsnGZvOUd4ZX4n8QjgJqz/5yw1GvTAjtGOwBCrdRcRej8OaSPuF6cWHf8s1L7RFpnAQM9hLKAv4zGi3YqzH0MSCsOqEFtbwIDAQAB",
+  "minimum_chrome_version": "109",
+  "background": {
+    "service_worker": "background.js"
+  }
+}

@@ -3,9 +3,36 @@ import MeetingDetection
 
 @MainActor
 final class BusyPanel {
+    private var indicators: [UInt32: IndicatorWindow] = [:]
+    var onMove: ((CGPoint, CGRect, UInt32) -> Void)?
+    var onKeyboardMove: (() -> Void)?
+
+    func update(visible: Bool, appearance: IndicatorAppearance = IndicatorAppearance(), accessibilityStatus: String = "Status indicator") {
+        guard visible else { for indicator in indicators.values { indicator.hide() }; return }
+        let screens: [NSScreen]
+        if appearance.allDisplays { screens = NSScreen.screens }
+        else { screens = (NSScreen.screens.first(where: { $0.displayID == appearance.displayID }) ?? NSScreen.screens.first).map { [$0] } ?? [] }
+        let activeIDs = Set(screens.map(\.displayID))
+        for id in Array(indicators.keys) where !activeIDs.contains(id) {
+            indicators[id]?.discard()
+            indicators.removeValue(forKey: id)
+        }
+        for screen in screens {
+            let indicator = indicators[screen.displayID] ?? IndicatorWindow()
+            indicator.onMove = { [weak self] origin, bounds, id in self?.onMove?(origin, bounds, id) }
+            indicator.onKeyboardMove = { [weak self] in self?.onKeyboardMove?() }
+            indicators[screen.displayID] = indicator
+            indicator.update(appearance: appearance, screen: screen, accessibilityStatus: accessibilityStatus)
+        }
+    }
+}
+
+@MainActor
+private final class IndicatorWindow {
     private let panel: NSPanel
     private var isDragging = false
     var onMove: ((CGPoint, CGRect, UInt32) -> Void)?
+    var onKeyboardMove: (() -> Void)?
 
     init() {
         panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 168, height: 82),
@@ -22,22 +49,26 @@ final class BusyPanel {
         let view = BusyView(frame: NSRect(x: 0, y: 0, width: 168, height: 82))
         view.onDragStarted = { [weak self] in self?.isDragging = true }
         view.onDragFinished = { [weak self] in self?.saveDraggedPosition() }
+        view.onKeyboardMove = { [weak self] in self?.onKeyboardMove?() }
         panel.contentView = view
     }
 
-    func update(visible: Bool, appearance: IndicatorAppearance = IndicatorAppearance()) {
+    func hide() {
+        isDragging = false
+        (panel.contentView as? BusyView)?.cancelMove()
+        panel.orderOut(nil)
+    }
+
+    func discard() { hide(); panel.close() }
+
+    func update(appearance: IndicatorAppearance, screen: NSScreen, accessibilityStatus: String) {
         let settings = appearance.normalized
-        guard visible, let screen = NSScreen.screens.first(where: { $0.displayID == settings.displayID }) ?? NSScreen.screens.first else {
-            isDragging = false
-            (panel.contentView as? BusyView)?.cancelMove()
-            panel.orderOut(nil)
-            return
-        }
         // Meeting polls may update the appearance while dragging; do not snap back to the saved position.
         if !isDragging { panel.setFrame(settings.frame(in: screen.visibleFrame), display: true) }
         panel.alphaValue = 1 - settings.transparency
         (panel.contentView as? BusyView)?.text = settings.text
         (panel.contentView as? BusyView)?.color = settings.color
+        panel.contentView?.setAccessibilityLabel(settings.text + ". " + accessibilityStatus)
         panel.contentView?.needsDisplay = true
         panel.orderFrontRegardless()
     }
@@ -60,6 +91,7 @@ final class BusyPanel {
 private final class BusyView: NSView {
     var onDragStarted: (() -> Void)?
     var onDragFinished: (() -> Void)?
+    var onKeyboardMove: (() -> Void)?
     private var moveEnabled = false
     private var dragStart: CGPoint?
     private var originalOrigin: CGPoint?
@@ -67,15 +99,15 @@ private final class BusyView: NSView {
     var text = "Busy" {
         didSet {
             guard text != oldValue else { return }
-            setAccessibilityLabel(text + ". Meeting in progress.")
             needsDisplay = true
         }
     }
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         setAccessibilityElement(true)
-        setAccessibilityLabel("Busy. Meeting in progress.")
+        setAccessibilityLabel("Busy. Status indicator.")
         setAccessibilityRole(.staticText)
+        setAccessibilityCustomActions([NSAccessibilityCustomAction(name: "Move indicator using keyboard", target: self, selector: #selector(accessibilityKeyboardMove))])
         toolTip = "Right-click and choose Move indicator to change its position."
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -87,7 +119,17 @@ private final class BusyView: NSView {
         let item = NSMenuItem(title: moveEnabled ? "Cancel move" : "Move indicator", action: #selector(toggleMove), keyEquivalent: "")
         item.target = self
         menu.addItem(item)
+        let keyboard = NSMenuItem(title: "Move using keyboard…", action: #selector(moveUsingKeyboard), keyEquivalent: "")
+        keyboard.target = self
+        menu.addItem(keyboard)
         NSMenu.popUpContextMenu(menu, with: event, for: self)
+    }
+
+    @objc private func moveUsingKeyboard() { cancelMove(); onKeyboardMove?() }
+    @objc private func accessibilityKeyboardMove() -> Bool {
+        guard onKeyboardMove != nil else { return false }
+        moveUsingKeyboard()
+        return true
     }
 
     @objc private func toggleMove() {

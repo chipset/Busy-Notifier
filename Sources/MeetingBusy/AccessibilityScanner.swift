@@ -21,10 +21,10 @@ enum AccessibilityScanner {
         "com.microsoft.edgemac", "org.mozilla.firefox", "com.brave.Browser", "company.thebrowser.Browser"
     ]
 
-    static func scanConcurrently(_ targets: [ApplicationTarget]) async -> ScanResult {
-        guard !targets.isEmpty else { return scan([]) }
+    static func scanConcurrently(_ targets: [ApplicationTarget], enabledServices: Set<MeetingService> = Set(MeetingService.allCases)) async -> ScanResult {
+        guard !targets.isEmpty else { return scan([], enabledServices: enabledServices) }
         return await withTaskGroup(of: ScanResult.self) { group in
-            for target in targets { group.addTask { scan([target]) } }
+            for target in targets { group.addTask { scan([target], enabledServices: enabledServices) } }
             var result = ScanResult()
             for await partial in group {
                 result.evidence += partial.evidence
@@ -37,11 +37,13 @@ enum AccessibilityScanner {
         }
     }
 
-    static func scan(_ targets: [ApplicationTarget]) -> ScanResult {
+    static func scan(_ targets: [ApplicationTarget], enabledServices: Set<MeetingService> = Set(MeetingService.allCases)) -> ScanResult {
         var result = ScanResult()
         if targets.isEmpty { result.details.append("No supported meeting apps or browsers are running.") }
         for target in targets {
             let native = Detection.nativeService(bundleID: target.bundleID)
+            if let native, !enabledServices.contains(native) { continue }
+            if enabledServices.isEmpty { continue }
             guard native != nil || browserIDs.contains(target.bundleID) else { continue }
             let app = AXUIElementCreateApplication(target.pid)
             AXUIElementSetMessagingTimeout(app, 0.12)
@@ -64,7 +66,7 @@ enum AccessibilityScanner {
             if native == .zoom, let menu = attribute(app, kAXMenuBarAttribute), CFGetTypeID(menu) == AXUIElementGetTypeID() {
                 let element = unsafeDowncast(menu, to: AXUIElement.self)
                 menuControls = walk(element, service: .zoom, title: nil, deadline: Date().addingTimeInterval(0.9),
-                     allowMenuItems: true, controlsRead: &controlsRead, nodesRead: &nodesRead, result: &result)
+                     allowMenuItems: true, controlsRead: &controlsRead, nodesRead: &nodesRead, result: &result, enabledServices: enabledServices)
             }
             let appDeadline = Date().addingTimeInterval(native == .zoom ? 3.5 : 2)
             for window in windows {
@@ -72,7 +74,7 @@ enum AccessibilityScanner {
                 let title = native == .zoom ? attribute(window, kAXTitleAttribute) as? String : nil
                 walk(window, service: native, title: title,
                      deadline: min(appDeadline, Date().addingTimeInterval(1)), allowMenuItems: false,
-                     controlsRead: &controlsRead, nodesRead: &nodesRead, result: &result, menuControls: menuControls)
+                     controlsRead: &controlsRead, nodesRead: &nodesRead, result: &result, menuControls: menuControls, enabledServices: enabledServices)
             }
             let matched = result.evidence.count - startCount
             result.details.append("\(target.bundleID): \(windows.count) windows, \(nodesRead) elements, \(controlsRead) controls, \(matched) meeting matches.")
@@ -86,7 +88,7 @@ enum AccessibilityScanner {
 
     @discardableResult private static func walk(_ root: AXUIElement, service: MeetingService?, title: String?, deadline: Date,
                              allowMenuItems: Bool, controlsRead: inout Int, nodesRead: inout Int,
-                             result: inout ScanResult, menuControls: [Control] = []) -> [Control] {
+                             result: inout ScanResult, menuControls: [Control] = [], enabledServices: Set<MeetingService>) -> [Control] {
         let attributes = [kAXRoleAttribute, kAXTitleAttribute, kAXDescriptionAttribute,
             kAXHelpAttribute, kAXEnabledAttribute, kAXChildrenAttribute, kAXURLAttribute,
             kAXDocumentAttribute, kAXValueAttribute] as CFArray
@@ -110,9 +112,9 @@ enum AccessibilityScanner {
             let role = values[0] as? String ?? ""
             if role == "AXWebArea", service == nil {
                 let url = (values[6] as? URL)?.absoluteString ?? (values[6] as? String) ?? (values[7] as? String) ?? ""
-                if let webService = Detection.webService(url: url) {
+                if let webService = Detection.webService(url: url, enabledServices: enabledServices) {
                     walk(element, service: webService, title: nil, deadline: deadline, allowMenuItems: false,
-                         controlsRead: &controlsRead, nodesRead: &nodesRead, result: &result)
+                         controlsRead: &controlsRead, nodesRead: &nodesRead, result: &result, enabledServices: enabledServices)
                 }
                 continue
             }

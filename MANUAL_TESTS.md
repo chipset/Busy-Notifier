@@ -36,6 +36,22 @@ Enable global shortcuts and test Control–Option–Command–1/2/3 from another
 
 Change text, color, size, transparency, location, and display; restart and verify persistence. Right-click → Move indicator, drag between displays, and verify the saved position does not snap back during scans. Test preview start/stop, no preview on opening Settings, and presentation hiding during a preview. Disconnect the chosen display and confirm fallback to the main display.
 
+## Pausing, service switches, reports, and presets
+
+Pause for 15 minutes, one hour, and until resumed. Verify scans stop and pending results cannot restore Busy. Test deadline expiry across sleep and relaunch, manual Resume, Force Busy while paused, and Presenting while paused. Automatic must not silently cancel a pause. Pausing also stops automatic sharing detection, so test the manual presenting override.
+
+Disable each service in the menu and Settings and verify it is ignored in both native and browser clients. Switch a service off during an in-flight scan; the old result must be discarded. Disable all services and verify the status is explicit, even without Accessibility permission. Reenable a service and verify detection restarts. Relaunch and verify preferences persist.
+
+Customize each shortcut, test valid alternate keys/modifiers from another app, duplicates, missing modifiers, conflicts with other apps, reset, disable, and persistence. An invalid/conflicting configuration must leave all global shortcuts unregistered and explain the failure.
+
+Save, update by name, apply, and delete appearance presets. Verify text/color/size/transparency/location/display choices round-trip and that existing appearance preferences survive upgrade. A preset must not change detection mode or begin recording.
+
+Enable Show on every display, connect/disconnect a monitor, and verify one indicator per connected screen. Move one and confirm shared relative placement, then test returning to one selected display and fallback after disconnection. Enter Presenting and verify every copy hides.
+
+Use only the keyboard to open Move indicator using the keyboard. Test arrows, Shift+arrows, Option+arrows, Return/Escape, directional buttons, and preview ownership when another preview already exists. Check VoiceOver's custom Move action and each directional button label. The ordinary indicator must remain nonactivating; only the explicitly opened movement window takes focus.
+
+Open This detection is incorrect in each state. Check generated reports contain no meeting content, paths, custom appearance text, or logs. Edit Expected behavior, save locally, and inspect the file. Nothing should be uploaded, and report contents must not enter diagnostic logs. Reopening an already visible report must preserve edits; closing/reopening should provide a new snapshot.
+
 ## Logging, updates, and distribution
 
 Open the log folder and verify State changes mode records transitions, while Every scan includes scan results/errors. Verify exported entries have no meeting titles, chat, names, URLs, or custom indicator text. Check Clear logs and Off. Logs use `~/Library/Logs/MeetingBusy`, with four files bounded to 512 KiB each; exports are user-selected copies and are not cleared automatically.

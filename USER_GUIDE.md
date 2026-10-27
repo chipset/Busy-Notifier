@@ -55,6 +55,8 @@ Click the menu bar symbol and read the first line:
 | Preview… | You explicitly enabled a preview; its visibility does not mean a meeting was detected. |
 | Presenting / Screen sharing detected | The indicator is hidden. |
 | Unable to inspect some meeting windows | A client could not be read or the scan reached a limit. |
+| Detection paused… | Automatic scans are stopped until the deadline or until you resume. |
+| All meeting services are disabled | Enable at least one service to use automatic detection. |
 
 The camera symbol is filled while the indicator is visible. A presentation symbol appears while presentation hiding is active. Read the menu status to distinguish an actual meeting from a manual indicator or preview.
 
@@ -69,6 +71,14 @@ Use **Force Busy** to display your status manually. Return to **Automatic** when
 For a temporary indicator, choose **Busy for… → 15, 30, or 60 minutes**. The menu shows when it ends and then returns to Automatic, including after sleeping through the deadline. Changing modes cancels the timer. Manual modes and timers reset to Automatic when the app is relaunched.
 
 The menu shows the last completed scan time and duration. Settings' detection details also identify the reason for a meeting match, such as active call controls or your stop-sharing control. A stale positive result expires if scans stop completing; closing or leaving a call clears its evidence on the next scan.
+
+## Pause detection or choose meeting services
+
+Choose **Pause detection → 15 minutes, 1 hour, or Until resumed** from the menu. Resume early with **Resume detection**. Pauses survive quitting/reopening, and timed pauses resume after their deadline, including after sleep. The menu bar says Paused while a pause is active.
+
+Pause stops automatic meeting and screen-sharing checks. It hides the automatic indicator and discards in-progress detection results. Force Busy, Presenting, and explicit previews remain available. Selecting Automatic does not cancel a pause; choose Resume detection to restart checks. Use manual Presenting before sharing while scans are paused.
+
+Under **Meeting services** in the menu, or **Settings… → Automatic detection**, turn Zoom, Teams, Webex, and Google Meet on or off individually. This applies to native clients and browser meetings. Disabled services are ignored, including their sharing controls. Turning services off clears previous evidence. With all services off, automatic detection stays disabled until you turn one on. Choices save automatically.
 
 ## Hide the indicator before presenting
 
@@ -88,7 +98,9 @@ Enable **Settings… → Keyboard shortcuts → Enable global shortcuts**. These
 | Control–Option–Command–2 | Force Busy |
 | Control–Option–Command–3 | Presenting |
 
-The Settings status reports whether registration succeeded. If another app already uses a shortcut, disable the conflict or leave Meeting Busy's global shortcuts off. Shortcuts do not require Input Monitoring permission.
+These are the defaults. In Settings, choose each action's key and Command/Option/Control/Shift modifiers. Each shortcut needs Command, Option, or Control, and a different combination from the other actions. Letter/number choices use standard ANSI key positions. **Reset shortcuts** restores the defaults. Changes save automatically and apply immediately when shortcuts are enabled.
+
+The Settings status identifies registration failures. Invalid or conflicting configurations leave all global shortcuts unregistered until corrected; the menu remains usable. Choose another combination, disable the conflicting shortcut in the other app, or leave global shortcuts off. Shortcuts do not require Input Monitoring permission.
 
 ## Customize the indicator
 
@@ -101,10 +113,15 @@ Open the menu bar menu and choose **Settings…**.
 | Size | Choose 50–250% of the default size. |
 | Transparency | 0% is solid; 90% is almost transparent. |
 | Display | Choose the main display or a connected display. An unavailable display falls back to the main display. |
+| Show on every display | Show one indicator on every connected display with the same appearance and relative location. |
 | Location | Use a corner/center button, the horizontal and vertical sliders, or the indicator's right-click Move option. |
 | Restore default appearance | Reset the message, color, size, transparency, display choice, and location. |
 
 Changes save automatically and survive quitting the app. Changing the indicator color does not change the application launch icon.
+
+Choose an **Appearance preset**, then click Apply preset. Starter presets are Meeting, Recording, and Do not disturb. To save your own, enter a name under **Save current appearance as** and click Save preset. An existing name updates that preset. Delete preset removes the selected preset. The menu's **Appearance presets** submenu applies saved styles quickly.
+
+Presets include text, color, size, transparency, position, display selection, and the every-display setting. They do not change detection mode, enable recording, or change macOS Focus. To use a Recording style outside a meeting, apply it and select Force Busy. Restore default appearance resets the current indicator but keeps saved presets.
 
 To move the box directly:
 
@@ -114,6 +131,10 @@ To move the box directly:
 4. Release the button to save the new display and position automatically. The box stays within the chosen display's usable area.
 
 To cancel before dragging, right-click again and choose **Cancel move**. When you are not in a meeting, enable the Settings preview below to make the indicator available for moving. The indicator receives mouse clicks within its box so that its Move menu is accessible; it does not take keyboard focus.
+
+For keyboard-only movement, choose **Move indicator using the keyboard…** in the menu or Settings, or **Move using keyboard…** from the box's context menu. VoiceOver users can invoke its Move indicator using keyboard custom action. Arrows move 10 points, Shift+arrows 50, and Option+arrows one point. Directional buttons are also available. Return, Escape, or Done finishes; changes save immediately. A temporary preview starts if needed and ends with the movement window. Presenting always keeps the indicator hidden.
+
+Choose a display in Settings before keyboard movement. With Show on every display enabled, moving one indicator updates the shared relative position on all displays. All copies hide together while presenting. Disconnecting a display removes its indicator.
 
 To see changes outside a meeting, enable **Show indicator preview**. This keeps a preview visible until you uncheck it, close Settings, select a detection mode, or choose **Stop preview** from the menu. Opening Settings alone does not enable a preview.
 
@@ -132,6 +153,14 @@ Under **Settings… → Diagnostic logging**, choose Off, State changes (the def
 Entries include event timestamps, detected services, detection reasons, permission state, numeric error codes, and scan durations. They exclude meeting titles, participant names, chat text, URLs, custom indicator text, and user paths. Meeting activity times can still be sensitive.
 
 Use **Open log folder**, **Export…**, or **Clear logs**. Export creates a JSON Lines file at your chosen location; review it before sharing it with the maintainer. Nothing is uploaded automatically. Clearing the app's logs does not delete previously exported copies. Off stops new entries but leaves existing logs until you clear them.
+
+## Report an incorrect detection
+
+Choose **This detection is incorrect…** from the menu or the Automatic detection section of Settings. An editable report opens with app version/build, macOS version, mode, pause/permission status, enabled services, detected signals, last scan time, and numeric error codes.
+
+Describe the expected behavior and steps to reproduce, then review and edit the report before clicking **Save reviewed report…**. It is saved as a local text file wherever you choose. Share that file with the maintainer yourself if you want help; nothing is uploaded or submitted automatically.
+
+The generated report excludes meeting titles/content, participant names, custom indicator text, user paths, and log contents. Anything you type into it is included when you save, so remove private information first. Logs can be exported separately from Settings if requested. Preparing a report does not put its contents or your notes in the app's logs. An open report keeps your edits when you invoke the command again; close it and reopen the command for a fresh snapshot.
 
 ## Check for updates
 

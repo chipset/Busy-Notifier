@@ -8,15 +8,21 @@ enum MeetingBusyApp {
     @MainActor static func main() {
         if CommandLine.arguments.contains("--diagnose") {
             let trusted = AXIsProcessTrusted()
-            print("Meeting Busy \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development")")
+            print("Meeting Busy \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development") (build \(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"))")
             print("Accessibility access: \(trusted ? "granted" : "denied")")
             guard trusted else { return }
+            let settings = FeatureSettings()
+            var pause = settings.pause
+            pause.expire()
+            if pause.isPaused { print("Automatic detection is paused; no applications were inspected."); return }
+            let enabled = settings.enabledServices
+            guard !enabled.isEmpty else { print("All meeting services are disabled; no applications were inspected."); return }
             let targets = NSWorkspace.shared.runningApplications.compactMap { app -> ApplicationTarget? in
                 guard let id = app.bundleIdentifier,
-                      Detection.nativeService(bundleID: id) != nil || AccessibilityScanner.browserIDs.contains(id) else { return nil }
+                      Detection.nativeService(bundleID: id).map({ enabled.contains($0) }) ?? AccessibilityScanner.browserIDs.contains(id) else { return nil }
                 return ApplicationTarget(pid: app.processIdentifier, bundleID: id)
             }
-            let result = AccessibilityScanner.scan(targets)
+            let result = AccessibilityScanner.scan(targets, enabledServices: enabled)
             print(result.details.joined(separator: "\n"))
             for item in result.evidence { print("\(item.service.rawValue): \(item.isPresenting ? "presenting" : "in meeting")") }
             return
@@ -40,6 +46,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let notifications = NotificationController()
     private let hotKeys = HotKeyController()
     private lazy var settingsController = SettingsController(store: appearance, features: features, diagnostics: diagnostics, updates: updates, notifications: notifications)
+    private lazy var keyboardMovement = KeyboardMovementController(store: appearance)
+    private let reportController = ReportController()
     private var timer: Timer?
     private var scanning = false
     private var tracker = EvidenceTracker()
@@ -55,10 +63,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastLoggedEvidence: [MeetingEvidence] = []
     private var lastTrusted: Bool?
     private var configuredShortcuts: Bool?
+    private var configuredShortcutBindings: ShortcutConfiguration?
+    private var configuredServices: Set<MeetingService>?
+    private var configuredPause: DetectionPause?
+    private var lastScanFailureCodes: [Int] = []
     private var notificationConfiguration = ""
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         appearance.onChange = { [weak self] in self?.updateUI() }
+        appearance.onKeyboardMove = { [weak self] in self?.keyboardMovement.show() }
+        panel.onKeyboardMove = { [weak self] in self?.keyboardMovement.show() }
         panel.onMove = { [weak self] origin, screen, displayID in
             guard let self else { return }
             self.appearance.appearance = self.appearance.appearance.repositioned(to: origin, in: screen, displayID: displayID)
@@ -73,6 +87,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.changeMode(action == .automatic ? .automatic : (action == .busy ? .busy : .presenting))
         }
         features.onChange = { [weak self] in self?.configureFeatures() }
+        features.onPause = { [weak self] minutes in self?.pauseDetection(minutes: minutes) }
+        features.onResume = { [weak self] in self?.resumeDetection() }
+        features.onReport = { [weak self] in self?.showReport() }
         updates.onChange = { [weak self] in self?.updateUI() }
         updates.onResult = { [weak self] event, code in self?.diagnostics.record(DiagnosticEntry(event: event, failureCodes: code.map { [$0] } ?? [])) }
         updates.onAvailable = { [weak self] version in
@@ -103,6 +120,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if manualOverride.expire() {
             changeMode(.automatic, event: .timerExpired, refresh: false)
         }
+        var pause = features.pause
+        if pause.expire() { features.pause = pause }
         if tracker.expire() {
             incomplete = true
             diagnostics.record(DiagnosticEntry(event: .evidenceExpired))
@@ -113,9 +132,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             lastTrusted = trusted
             diagnostics.record(DiagnosticEntry(event: .permissionChanged, trusted: trusted))
         }
+        guard !features.pause.isPaused, !features.enabledServices.isEmpty else {
+            tracker.clear()
+            appearance.lastCheckDescription = features.pause.isPaused ? "Automatic scans are paused." : "Enable a meeting service in Settings to start scanning."
+            updateUI()
+            return
+        }
         guard trusted else {
             scanGeneration += 1
             tracker.clear()
+            lastScanFailureCodes = []
             appearance.lastCheckDescription = "Automatic detection is waiting for Accessibility permission."
             appearance.detectionDetails = "Accessibility access is denied.\nUse Grant Accessibility access from the menu.\nIf this app was rebuilt, remove its old Accessibility entry and add this copy again.\nApp: \(Bundle.main.bundlePath)"
             updateUI()
@@ -126,13 +152,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         scanning = true
         let generation = scanGeneration
         let scanStarted = Date()
+        let enabledServices = features.enabledServices
         let targets = NSWorkspace.shared.runningApplications.compactMap { app -> ApplicationTarget? in
             guard let id = app.bundleIdentifier,
-                  Detection.nativeService(bundleID: id) != nil || AccessibilityScanner.browserIDs.contains(id) else { return nil }
+                  Detection.nativeService(bundleID: id).map({ enabledServices.contains($0) }) ?? AccessibilityScanner.browserIDs.contains(id) else { return nil }
             return ApplicationTarget(pid: app.processIdentifier, bundleID: id)
         }
         Task { [weak self] in
-            let result = await AccessibilityScanner.scanConcurrently(targets)
+            let result = await AccessibilityScanner.scanConcurrently(targets, enabledServices: enabledServices)
             guard let self else { return }
             self.scanning = false
             guard self.scanGeneration == generation, !self.suspended else { return }
@@ -147,20 +174,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             self.tracker.accept(result.evidence.sorted { ($0.service.rawValue, $0.signal.rawValue, $0.isPresenting ? 1 : 0) < ($1.service.rawValue, $1.signal.rawValue, $1.isPresenting ? 1 : 0) })
             self.incomplete = result.incomplete
+            self.lastScanFailureCodes = result.failureCodes
             let milliseconds = Int(Date().timeIntervalSince(scanStarted) * 1000)
             self.appearance.lastCheckDescription = "Last check: \(Date().formatted(date: .omitted, time: .standard)) · \(milliseconds) ms\(result.incomplete ? " · incomplete" : "")"
             self.diagnostics.record(DiagnosticEntry(event: result.incomplete ? .scanFailed : .scan, evidence: self.evidence,
                                                      trusted: self.trusted, incomplete: result.incomplete,
                                                      scanMilliseconds: milliseconds, failureCodes: result.failureCodes))
             let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development"
-            self.appearance.detectionDetails = "Version: \(version)\nApp: \(Bundle.main.bundlePath)\nAccessibility access: granted\n" + result.details.joined(separator: "\n")
+            let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+            self.appearance.detectionDetails = "Version: \(version) (build \(build))\nApp: \(Bundle.main.bundlePath)\nAccessibility access: granted\n" + result.details.joined(separator: "\n")
             self.updateUI()
         }
     }
 
     private func updateUI() {
         let previewRequested = appearance.showPreview || Date() < previewUntil
-        let reason = IndicatorPolicy.reason(mode: mode, evidence: evidence, trusted: trusted, preview: previewRequested)
+        let reason = IndicatorPolicy.reason(mode: mode, evidence: evidence, trusted: trusted, preview: previewRequested,
+                                           paused: features.pause.isPaused, servicesEnabled: !features.enabledServices.isEmpty)
         if lastLoggedReason != reason || lastLoggedEvidence != evidence {
             lastLoggedReason = reason
             lastLoggedEvidence = evidence
@@ -168,7 +198,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let presenting = reason == .presenting
         let visible = !suspended && reason.showsIndicator
-        panel.update(visible: visible, appearance: appearance.appearance)
+        let accessibilityStatus = reason == .preview ? "Indicator preview" : (reason == .forcedBusy ? "Manual status" : "Meeting detected")
+        panel.update(visible: visible, appearance: appearance.appearance, accessibilityStatus: accessibilityStatus)
         let state: String
         switch reason {
         case .presenting:
@@ -177,14 +208,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .forcedBusy:
             state = manualOverride.expiresAt.map { "Busy — until \($0.formatted(date: .omitted, time: .shortened))" } ?? "Busy — manual override"
         case .meeting: state = "In a meeting: " + Set(evidence.map { $0.service.rawValue }).sorted().joined(separator: ", ")
-        case .preview: state = trusted ? "Preview — no meeting detected" : "Preview — Accessibility setup needed"
+        case .preview:
+            state = features.pause.isPaused ? "Preview — detection paused" : (trusted ? "Preview — no meeting detected" : "Preview — Accessibility setup needed")
         case .setupNeeded: state = "Setup needed: Accessibility access"
         case .idle: state = incomplete ? "Unable to inspect some meeting windows" : "No active meeting detected"
+        case .paused: state = features.pause.resumeAt.map { "Detection paused until \($0.formatted(date: .omitted, time: .shortened))" } ?? "Detection paused until resumed"
+        case .disabled: state = "All meeting services are disabled"
         }
         appearance.detectionStatus = state
         statusItem.button?.toolTip = "Meeting Busy: " + state
-        statusItem.button?.title = mode == .presenting ? " Presenting" : ""
-        statusItem.button?.image = NSImage(systemSymbolName: presenting ? "rectangle.on.rectangle.slash" : (visible ? "video.fill" : "video"), accessibilityDescription: state)
+        statusItem.button?.title = mode == .presenting ? " Presenting" : (features.pause.isPaused ? " Paused" : "")
+        let symbol = reason == .paused ? "pause.circle" : (reason == .disabled ? "video.slash" : (presenting ? "rectangle.on.rectangle.slash" : (visible ? "video.fill" : "video")))
+        statusItem.button?.image = NSImage(systemSymbolName: symbol, accessibilityDescription: state)
         let menu = NSMenu()
         let status = NSMenuItem(title: state, action: nil, keyEquivalent: "")
         status.isEnabled = false
@@ -199,8 +234,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             item.tag = index
             item.state = choice == mode ? .on : .off
             if features.shortcutsEnabled && features.shortcutStatus == "Global shortcuts are active." {
-                item.keyEquivalent = String(index + 1)
-                item.keyEquivalentModifierMask = [.control, .option, .command]
+                let binding = features.shortcuts.bindings[index]
+                item.keyEquivalent = binding.menuKey
+                item.keyEquivalentModifierMask = binding.menuModifiers
             }
             menu.addItem(item)
         }
@@ -212,8 +248,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         timed.submenu = durations
         menu.addItem(timed)
+        if features.pause.isPaused { add("Resume detection", action: #selector(resumeDetection), to: menu) }
+        let pauseItem = NSMenuItem(title: "Pause detection", action: nil, keyEquivalent: "")
+        let pauseMenu = NSMenu()
+        for (minutes, title) in [(15, "15 minutes"), (60, "1 hour"), (0, "Until resumed")] {
+            let item = add(title, action: #selector(pauseFromMenu(_:)), to: pauseMenu)
+            item.tag = minutes
+        }
+        pauseItem.submenu = pauseMenu
+        menu.addItem(pauseItem)
+        let serviceItem = NSMenuItem(title: "Meeting services", action: nil, keyEquivalent: "")
+        let servicesMenu = NSMenu()
+        for (index, service) in MeetingService.allCases.enumerated() {
+            let item = add(service.rawValue, action: #selector(toggleService(_:)), to: servicesMenu)
+            item.tag = index
+            item.state = features.enabledServices.contains(service) ? .on : .off
+        }
+        serviceItem.submenu = servicesMenu
+        menu.addItem(serviceItem)
+        if !appearance.presets.isEmpty {
+            let presetsItem = NSMenuItem(title: "Appearance presets", action: nil, keyEquivalent: "")
+            let presetsMenu = NSMenu()
+            for preset in appearance.presets {
+                let item = add(preset.name, action: #selector(applyPreset(_:)), to: presetsMenu)
+                item.representedObject = preset.id.uuidString
+            }
+            presetsItem.submenu = presetsMenu
+            menu.addItem(presetsItem)
+        }
         menu.addItem(.separator())
         add("Settings…", action: #selector(showSettings), to: menu, key: ",")
+        add("Move indicator using the keyboard…", action: #selector(showKeyboardMovement), to: menu)
+        add("This detection is incorrect…", action: #selector(showReport), to: menu)
         add("Preview Busy for 5 seconds", action: #selector(preview), to: menu)
         if previewRequested { add("Stop preview", action: #selector(stopPreview), to: menu) }
         let update = add(updates.availableVersion.map { "Update available: \($0)…" } ?? "Check for updates…", action: #selector(checkUpdates), to: menu)
@@ -257,10 +323,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func configureFeatures() {
-        if configuredShortcuts != features.shortcutsEnabled {
+        if configuredServices != features.enabledServices || configuredPause != features.pause {
+            if configuredServices != nil, configuredServices != features.enabledServices {
+                diagnostics.record(DiagnosticEntry(event: .servicesChanged))
+            }
+            if configuredPause != features.pause, configuredPause != nil || features.pause.isPaused {
+                diagnostics.record(DiagnosticEntry(event: features.pause.isPaused ? .detectionPaused : .detectionResumed))
+            }
+            configuredServices = features.enabledServices
+            configuredPause = features.pause
+            scanGeneration += 1
+            tracker.clear()
+            lastScanFailureCodes = []
+            incomplete = false
+            appearance.lastCheckDescription = features.pause.isPaused ? "Automatic scans are paused." : "Waiting for the next scan of enabled services."
+            appearance.detectionDetails = "Enabled services: " + features.enabledServices.map(\.rawValue).sorted().joined(separator: ", ")
+        }
+        if configuredShortcuts != features.shortcutsEnabled || configuredShortcutBindings != features.shortcuts {
             configuredShortcuts = features.shortcutsEnabled
-            let status = hotKeys.configure(enabled: features.shortcutsEnabled)
-            features.shortcutStatus = features.shortcutsEnabled ? (status == 0 ? "Global shortcuts are active." : "A shortcut could not be registered (error \(status)). Try disabling conflicting shortcuts.") : "Keyboard shortcuts are off."
+            configuredShortcutBindings = features.shortcuts
+            let status = hotKeys.configure(enabled: features.shortcutsEnabled, configuration: features.shortcuts)
+            features.shortcutStatus = features.shortcutsEnabled ? (status == 0 ? "Global shortcuts are active." : (hotKeys.failureDescription ?? "Shortcuts could not be registered (error \(status)).")) : "Keyboard shortcuts are off."
             let event: DiagnosticEvent = !features.shortcutsEnabled ? .shortcutsDisabled : (status == 0 ? .shortcutsRegistered : .shortcutsFailed)
             diagnostics.record(DiagnosticEntry(event: event, failureCodes: status == 0 ? [] : [Int(status)]))
         }
@@ -293,6 +376,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showSettings() {
         settingsController.show()
+    }
+
+    private func pauseDetection(minutes: Int?) {
+        var pause = features.pause
+        pause.pause(minutes: minutes)
+        features.pause = pause
+        poll()
+    }
+    @objc private func pauseFromMenu(_ sender: NSMenuItem) { pauseDetection(minutes: sender.tag == 0 ? nil : sender.tag) }
+    @objc private func resumeDetection() {
+        var pause = features.pause
+        pause.resume()
+        features.pause = pause
+        poll()
+    }
+    @objc private func toggleService(_ sender: NSMenuItem) {
+        let service = MeetingService.allCases[sender.tag]
+        if features.enabledServices.contains(service) { features.enabledServices.remove(service) }
+        else { features.enabledServices.insert(service) }
+        poll()
+    }
+    @objc private func applyPreset(_ sender: NSMenuItem) {
+        guard let value = sender.representedObject as? String, let id = UUID(uuidString: value) else { return }
+        appearance.applyPreset(id: id)
+    }
+    @objc private func showKeyboardMovement() { keyboardMovement.show() }
+    @objc private func showReport() {
+        let reason = IndicatorPolicy.reason(mode: mode, evidence: evidence, trusted: trusted,
+                                           preview: appearance.showPreview || Date() < previewUntil,
+                                           paused: features.pause.isPaused, servicesEnabled: !features.enabledServices.isEmpty)
+        let report = DetectionReport(version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development",
+                                     build: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
+                                     osVersion: ProcessInfo.processInfo.operatingSystemVersionString, mode: mode, reason: reason, trusted: trusted,
+                                     paused: features.pause.isPaused, enabledServices: features.enabledServices, evidence: evidence,
+                                     lastScanAt: tracker.lastCompletedAt, failureCodes: lastScanFailureCodes)
+        reportController.show(report)
+        diagnostics.record(DiagnosticEntry(event: .reportPrepared, state: reason))
     }
 
     @objc private func stopPreview() {

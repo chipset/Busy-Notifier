@@ -10,8 +10,9 @@ public struct IndicatorAppearance: Codable, Equatable, Sendable {
     public var displayID: UInt32?
     public var text: String
     public var color: IndicatorColor
+    public var allDisplays: Bool
 
-    public init(scale: Double = 1, transparency: Double = 0, x: Double = 0, y: Double = 0, displayID: UInt32? = nil, text: String = "Busy", color: IndicatorColor = .busyRed) {
+    public init(scale: Double = 1, transparency: Double = 0, x: Double = 0, y: Double = 0, displayID: UInt32? = nil, text: String = "Busy", color: IndicatorColor = .busyRed, allDisplays: Bool = false) {
         self.scale = scale
         self.transparency = transparency
         self.x = x
@@ -19,9 +20,10 @@ public struct IndicatorAppearance: Codable, Equatable, Sendable {
         self.displayID = displayID
         self.text = text
         self.color = color
+        self.allDisplays = allDisplays
     }
 
-    private enum CodingKeys: String, CodingKey { case scale, transparency, x, y, displayID, text, color }
+    private enum CodingKeys: String, CodingKey { case scale, transparency, x, y, displayID, text, color, allDisplays }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -31,7 +33,8 @@ public struct IndicatorAppearance: Codable, Equatable, Sendable {
                   y: try values.decodeIfPresent(Double.self, forKey: .y) ?? 0,
                   displayID: try values.decodeIfPresent(UInt32.self, forKey: .displayID),
                   text: try values.decodeIfPresent(String.self, forKey: .text) ?? "Busy",
-                  color: try values.decodeIfPresent(IndicatorColor.self, forKey: .color) ?? .busyRed)
+                  color: try values.decodeIfPresent(IndicatorColor.self, forKey: .color) ?? .busyRed,
+                  allDisplays: try values.decodeIfPresent(Bool.self, forKey: .allDisplays) ?? false)
     }
 
     public var normalized: Self {
@@ -39,7 +42,7 @@ public struct IndicatorAppearance: Codable, Equatable, Sendable {
              transparency: clamp(transparency, 0...0.9, fallback: 0),
              x: clamp(x, 0...1, fallback: 0), y: clamp(y, 0...1, fallback: 0), displayID: displayID,
              text: text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Busy" : text.trimmingCharacters(in: .whitespacesAndNewlines),
-             color: color.normalized)
+             color: color.normalized, allDisplays: allDisplays)
     }
 
     public func frame(in screen: CGRect) -> CGRect {

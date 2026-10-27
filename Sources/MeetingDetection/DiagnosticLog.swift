@@ -7,6 +7,7 @@ public enum LoggingMode: String, CaseIterable, Sendable {
 public enum DiagnosticEvent: String, Codable, Sendable {
     case launched, terminated, stateChanged, permissionChanged, modeChanged, timerExpired, scan, scanFailed, evidenceExpired
     case sleep, wake, shortcutsRegistered, shortcutsDisabled, shortcutsFailed, updateCheck, updateAvailable, updateFailed, notificationFailed
+    case detectionPaused, detectionResumed, servicesChanged, reportPrepared
 }
 
 /// Deliberately has no arbitrary message field: no UI labels, titles, URLs, names, or custom text.

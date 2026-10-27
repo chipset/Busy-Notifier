@@ -4,6 +4,12 @@ import MeetingDetection
 
 @MainActor
 final class AppearanceStore: ObservableObject {
+    @Published var presets: [AppearancePreset] {
+        didSet {
+            if let data = try? JSONEncoder().encode(presets) { UserDefaults.standard.set(data, forKey: "appearancePresets") }
+            onChange?()
+        }
+    }
     @Published var appearance: IndicatorAppearance {
         didSet {
             if let data = try? JSONEncoder().encode(appearance.normalized) {
@@ -17,12 +23,41 @@ final class AppearanceStore: ObservableObject {
     @Published var lastCheckDescription = "No completed scan yet."
     @Published var showPreview = false { didSet { onChange?() } }
     var onChange: (() -> Void)?
+    var onKeyboardMove: (() -> Void)?
 
     init() {
+        if let data = UserDefaults.standard.data(forKey: "appearancePresets"),
+           let saved = try? JSONDecoder().decode([AppearancePreset].self, from: data) {
+            presets = saved.filter { !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                .map { AppearancePreset(id: $0.id, name: $0.name, appearance: $0.appearance) }
+        } else { presets = AppearancePreset.defaults }
         if let data = UserDefaults.standard.data(forKey: "indicatorAppearance"),
            let saved = try? JSONDecoder().decode(IndicatorAppearance.self, from: data) {
             appearance = saved.normalized
         } else { appearance = IndicatorAppearance() }
+    }
+
+    func savePreset(name: String) -> UUID? {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return nil }
+        if let index = presets.firstIndex(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) {
+            let id = presets[index].id
+            presets[index] = AppearancePreset(id: id, name: name, appearance: appearance)
+            return id
+        }
+        let preset = AppearancePreset(name: name, appearance: appearance)
+        presets.append(preset)
+        return preset.id
+    }
+
+    func applyPreset(id: UUID) {
+        if let preset = presets.first(where: { $0.id == id }) { appearance = preset.appearance.normalized }
+    }
+
+    func nudge(dx: CGFloat, dy: CGFloat) {
+        guard let screen = NSScreen.screens.first(where: { $0.displayID == appearance.displayID }) ?? NSScreen.screens.first else { return }
+        let origin = appearance.frame(in: screen.visibleFrame).origin
+        appearance = appearance.repositioned(to: CGPoint(x: origin.x + dx, y: origin.y + dy), in: screen.visibleFrame, displayID: screen.displayID)
     }
 }
 
@@ -57,12 +92,36 @@ private struct SettingsView: View {
     let diagnostics: DiagnosticsController
     let updates: UpdateChecker
     let notifications: NotificationController
+    @State private var selectedPreset: UUID?
+    @State private var presetName = ""
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 Text("Busy indicator").font(.title2.bold())
                 Text("Changes save automatically and apply immediately.").foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 8) {
+                    Picker("Appearance preset", selection: $selectedPreset) {
+                        Text("Choose a preset").tag(nil as UUID?)
+                        ForEach(store.presets) { Text($0.name).tag($0.id as UUID?) }
+                    }
+                    HStack {
+                        Button("Apply preset") { if let selectedPreset { store.applyPreset(id: selectedPreset) } }
+                            .disabled(!store.presets.contains(where: { $0.id == selectedPreset }))
+                        Button("Delete preset") {
+                            store.presets.removeAll { $0.id == selectedPreset }
+                            selectedPreset = nil
+                        }.disabled(!store.presets.contains(where: { $0.id == selectedPreset }))
+                    }
+                    TextField("Save current appearance as", text: $presetName, prompt: Text("Preset name"))
+                        .textFieldStyle(.roundedBorder)
+                    Button("Save preset") {
+                        selectedPreset = store.savePreset(name: presetName)
+                        presetName = ""
+                    }.disabled(presetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Text("Saving with an existing name updates that preset. Presets include placement and display settings.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 TextField("Indicator text", text: $store.appearance.text, prompt: Text("Busy"))
                     .textFieldStyle(.roundedBorder)
                 Text("Leave blank to use Busy. Longer messages automatically fit the box.")
@@ -92,12 +151,13 @@ private struct SettingsView: View {
                     Text("Location").font(.headline)
                     Text("You can also right-click the indicator, choose Move indicator, then drag it. Release to save.")
                         .font(.caption).foregroundStyle(.secondary)
+                    Toggle("Show on every display", isOn: $store.appearance.allDisplays)
                     Picker("Display", selection: $store.appearance.displayID) {
                         Text("Main display").tag(nil as UInt32?)
                         ForEach(NSScreen.screens, id: \.displayID) { screen in
                             Text(screen.localizedName).tag(screen.displayID as UInt32?)
                         }
-                    }
+                    }.disabled(store.appearance.allDisplays)
                     HStack {
                         position("Top left", x: 0, y: 0)
                         position("Top right", x: 1, y: 0)
@@ -111,6 +171,7 @@ private struct SettingsView: View {
                     Slider(value: $store.appearance.x, in: 0...1, step: 0.01).accessibilityLabel("Horizontal position")
                     Text("Vertical: \(Int(store.appearance.y * 100))% from top")
                     Slider(value: $store.appearance.y, in: 0...1, step: 0.01).accessibilityLabel("Vertical position")
+                    Button("Move indicator using the keyboard…") { store.onKeyboardMove?() }
                 }
                 Toggle("Show indicator preview", isOn: $store.showPreview)
                 Text("Preview is manual and stays visible until unchecked or Settings is closed. It stays hidden while presenting.")

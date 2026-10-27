@@ -53,6 +53,11 @@ public enum Detection {
         return nil
     }
 
+    public static func webService(url: String, enabledServices: Set<MeetingService>) -> MeetingService? {
+        guard let service = webService(url: url), enabledServices.contains(service) else { return nil }
+        return service
+    }
+
     // Only actionable controls count. Chat messages and page text cannot start a meeting.
     public static func evaluate(service: MeetingService, controls: [Control], windowTitle: String? = nil, menuControls: [Control] = []) -> MeetingEvidence? {
         let labels = controls.filter(\.actionable).map(\.label)
@@ -110,9 +115,11 @@ public enum IndicatorPolicy {
         reason(mode: mode, evidence: evidence, trusted: trusted).showsIndicator
     }
 
-    public static func reason(mode: DisplayMode, evidence: [MeetingEvidence], trusted: Bool, preview: Bool = false) -> IndicatorReason {
+    public static func reason(mode: DisplayMode, evidence: [MeetingEvidence], trusted: Bool, preview: Bool = false, paused: Bool = false, servicesEnabled: Bool = true) -> IndicatorReason {
         if mode == .presenting || evidence.contains(where: \.isPresenting) { return .presenting }
         if mode == .busy { return .forcedBusy }
+        if paused { return preview ? .preview : .paused }
+        if !servicesEnabled { return preview ? .preview : .disabled }
         if trusted && !evidence.isEmpty { return .meeting }
         if preview { return .preview }
         return trusted ? .idle : .setupNeeded
@@ -120,12 +127,12 @@ public enum IndicatorPolicy {
 }
 
 public enum IndicatorReason: String, Equatable, Sendable, Codable {
-    case presenting, forcedBusy, meeting, preview, idle, setupNeeded
+    case presenting, forcedBusy, meeting, preview, idle, setupNeeded, paused, disabled
 
     public var showsIndicator: Bool {
         switch self {
         case .forcedBusy, .meeting, .preview: true
-        case .presenting, .idle, .setupNeeded: false
+        case .presenting, .idle, .setupNeeded, .paused, .disabled: false
         }
     }
 }

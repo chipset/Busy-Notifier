@@ -2,8 +2,26 @@ import AppKit
 import SwiftUI
 import MeetingDetection
 
+private func storedValue<T: Decodable>(_ type: T.Type, key: String, fallback: T) -> T {
+    guard let data = UserDefaults.standard.data(forKey: key), let value = try? JSONDecoder().decode(type, from: data) else { return fallback }
+    return value
+}
+
+private func saveValue<T: Encodable>(_ value: T, key: String) {
+    if let data = try? JSONEncoder().encode(value) { UserDefaults.standard.set(data, forKey: key) }
+}
+
 @MainActor
 final class FeatureSettings: ObservableObject {
+    @Published var enabledServices = storedValue(Set<MeetingService>.self, key: "enabledServices", fallback: Set(MeetingService.allCases)) {
+        didSet { saveValue(enabledServices, key: "enabledServices"); onChange?() }
+    }
+    @Published var pause = storedValue(DetectionPause.self, key: "detectionPause", fallback: DetectionPause()) {
+        didSet { saveValue(pause, key: "detectionPause"); onChange?() }
+    }
+    @Published var shortcuts = storedValue(ShortcutConfiguration.self, key: "shortcuts", fallback: ShortcutConfiguration()) {
+        didSet { saveValue(shortcuts, key: "shortcuts"); onChange?() }
+    }
     @Published var shortcutsEnabled = UserDefaults.standard.bool(forKey: "shortcutsEnabled") {
         didSet { UserDefaults.standard.set(shortcutsEnabled, forKey: "shortcutsEnabled"); onChange?() }
     }
@@ -21,6 +39,9 @@ final class FeatureSettings: ObservableObject {
     }
     @Published var shortcutStatus = "Keyboard shortcuts are off."
     var onChange: (() -> Void)?
+    var onPause: ((Int?) -> Void)?
+    var onResume: (() -> Void)?
+    var onReport: (() -> Void)?
 }
 
 @MainActor
@@ -144,9 +165,40 @@ struct FeatureSettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Divider()
+            Text("Automatic detection").font(.headline)
+            ForEach(MeetingService.allCases, id: \.self) { service in
+                Toggle(service.rawValue, isOn: Binding(
+                    get: { features.enabledServices.contains(service) },
+                    set: { enabled in
+                        if enabled { features.enabledServices.insert(service) }
+                        else { features.enabledServices.remove(service) }
+                    }))
+            }
+            Text("Disabled services are ignored in native clients and browsers. Pausing also stops automatic sharing detection; use Presenting to hide manually. Manual Busy remains available.")
+                .font(.caption).foregroundStyle(.secondary)
+            HStack {
+                Button("Pause 15 minutes") { features.onPause?(15) }
+                Button("Pause 1 hour") { features.onPause?(60) }
+            }
+            HStack {
+                Button("Pause until resumed") { features.onPause?(nil) }
+                if features.pause.isPaused { Button("Resume detection") { features.onResume?() } }
+            }
+            if features.pause.isPaused {
+                Text(features.pause.resumeAt.map { "Paused until \($0.formatted(date: .omitted, time: .shortened))." } ?? "Paused until you choose Resume detection.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Button("This detection is incorrect…") { features.onReport?() }
+            Text("Review and edit a local report before saving it. Nothing is submitted automatically.")
+                .font(.caption).foregroundStyle(.secondary)
+            Divider()
             Text("Keyboard shortcuts").font(.headline)
             Toggle("Enable global shortcuts", isOn: $features.shortcutsEnabled)
-            Text("⌃⌥⌘1 Automatic · ⌃⌥⌘2 Busy · ⌃⌥⌘3 Presenting").font(.caption)
+            ShortcutEditor(title: "Automatic", binding: $features.shortcuts.automatic)
+            ShortcutEditor(title: "Busy", binding: $features.shortcuts.busy)
+            ShortcutEditor(title: "Presenting", binding: $features.shortcuts.presenting)
+            Button("Reset shortcuts") { features.shortcuts = ShortcutConfiguration() }
+            if let message = features.shortcuts.validationMessage { Text(message).font(.caption).foregroundStyle(.red) }
             Text(features.shortcutStatus).font(.caption).foregroundStyle(.secondary)
             Divider()
             Text("Presentation reminders").font(.headline)
@@ -181,6 +233,27 @@ struct FeatureSettingsView: View {
             }
             Text(updates.status).font(.caption).foregroundStyle(.secondary)
             Text(notifications.status).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct ShortcutEditor: View {
+    let title: String
+    @Binding var binding: ShortcutBinding
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Picker("\(title) key", selection: $binding.key) {
+                    ForEach(ShortcutKey.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                }.frame(maxWidth: 220)
+                Text(binding.label).font(.system(.caption, design: .monospaced))
+            }
+            HStack {
+                Toggle("Command", isOn: $binding.command).accessibilityLabel("\(title) Command modifier")
+                Toggle("Option", isOn: $binding.option).accessibilityLabel("\(title) Option modifier")
+                Toggle("Control", isOn: $binding.control).accessibilityLabel("\(title) Control modifier")
+                Toggle("Shift", isOn: $binding.shift).accessibilityLabel("\(title) Shift modifier")
+            }.toggleStyle(.checkbox)
         }
     }
 }

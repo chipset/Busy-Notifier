@@ -14,6 +14,7 @@ final class AppearanceStore: ObservableObject {
     }
     @Published var detectionStatus = "Checking meeting applications…"
     @Published var detectionDetails = "Waiting for the first scan."
+    @Published var lastCheckDescription = "No completed scan yet."
     @Published var showPreview = false { didSet { onChange?() } }
     var onChange: (() -> Void)?
 
@@ -30,7 +31,7 @@ final class SettingsController: NSObject, NSWindowDelegate {
     private let window: NSWindow
     private let store: AppearanceStore
 
-    init(store: AppearanceStore) {
+    init(store: AppearanceStore, features: FeatureSettings, diagnostics: DiagnosticsController, updates: UpdateChecker, notifications: NotificationController) {
         self.store = store
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 650),
                           styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
@@ -38,7 +39,7 @@ final class SettingsController: NSObject, NSWindowDelegate {
         window.title = "Meeting Busy Settings"
         window.isReleasedWhenClosed = false
         window.delegate = self
-        window.contentView = NSHostingView(rootView: SettingsView(store: store))
+        window.contentView = NSHostingView(rootView: SettingsView(store: store, features: features, diagnostics: diagnostics, updates: updates, notifications: notifications))
         window.center()
     }
 
@@ -52,6 +53,10 @@ final class SettingsController: NSObject, NSWindowDelegate {
 
 private struct SettingsView: View {
     @ObservedObject var store: AppearanceStore
+    let features: FeatureSettings
+    let diagnostics: DiagnosticsController
+    let updates: UpdateChecker
+    let notifications: NotificationController
 
     var body: some View {
         ScrollView {
@@ -114,12 +119,14 @@ private struct SettingsView: View {
                 Divider()
                 Text("Meeting detection").font(.headline)
                 Text(store.detectionStatus).font(.callout)
+                Text(store.lastCheckDescription).font(.caption).foregroundStyle(.secondary)
                 DisclosureGroup("Detection details") {
                     Text(store.detectionDetails).font(.system(.caption, design: .monospaced))
                         .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                 }
                 Text("If access is denied after an update, remove Meeting Busy from Accessibility in System Settings, add this copy again, and reopen it.")
                     .font(.caption).foregroundStyle(.secondary)
+                FeatureSettingsView(features: features, diagnostics: diagnostics, updates: updates, notifications: notifications)
             }.padding(22)
         }.frame(width: 500, height: 650)
     }

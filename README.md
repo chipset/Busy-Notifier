@@ -15,7 +15,7 @@ To rebuild with Xcode or the Swift command line tools:
 open "dist/Meeting Busy.app"
 ```
 
-The script builds for the current Mac's architecture and creates an ad hoc signed app. Keep it in a permanent location before enabling **Launch at login**. Rebuilds may require granting Accessibility access again. Current builds have no Apple Developer ID signature or Apple notarization; see the [first-launch security instructions](USER_GUIDE.md#open-a-build-that-macos-blocks).
+The script builds a universal app for Apple Silicon and Intel by default; `./scripts/build-app.sh debug native` builds only for the current Mac. Default builds are ad hoc signed. Keep the app in a permanent location before enabling **Launch at login**. Rebuilds may require granting Accessibility access again. A Developer ID certificate and notarization credentials are not included; see [releasing instructions](RELEASING.md) for identified-developer builds and the [first-launch security instructions](USER_GUIDE.md#open-a-build-that-macos-blocks) for development builds.
 
 The application icon is a white camera with a busy badge on a red gradient. `scripts/make-icon.swift` draws the vector artwork at standard macOS icon resolutions; the build script packages `AppIcon.icns` and exports `dist/AppIcon.png` for previewing. Changing the indicator color does not change the application icon or menu bar symbol.
 
@@ -23,11 +23,14 @@ The application icon is a white camera with a busy badge on a red gradient. `scr
 
 - **Automatic:** polls every two seconds for active call controls, such as Leave call or End meeting. If the previous scan is still running, that tick is skipped, so detection can take longer with slow or numerous applications. Polling pauses during sleep. Merely opening Teams, Webex, a calendar invitation, or a meeting's prejoin page does not trigger the indicator.
 - **Force Busy:** shows the indicator manually, including when a client does not expose its call controls.
+- **Busy for…:** shows Busy for 15, 30, or 60 minutes, then returns to Automatic. The menu shows the end time; sleep does not extend the deadline.
 - **I’m presenting — hide indicator:** hides immediately. Choose this before starting a presentation, then return to Automatic afterward.
 - **Preview Busy for 5 seconds:** checks the indicator's appearance and placement. Presentation hiding takes precedence over previews and Force Busy.
 - **Settings…:** changes the indicator text, color, size (50–250%), transparency (0–90%), display, and location. The color picker changes the box fill; text automatically uses black or white for contrast. Blank text uses “Busy”; longer messages automatically fit the box. Choose a corner or center preset, or use horizontal/vertical sliders for a custom position. Changes save automatically and survive relaunch, including appearance preferences from earlier versions. The preview is opt-in through **Show indicator preview**; opening Settings does not turn it on. Presentation hiding still takes precedence.
 
 A preview is labeled **Preview** in the menu, including when Accessibility setup is needed. Stop it with **Stop preview**, by selecting a detection mode, by unchecking the preview in Settings, or by closing Settings (for the Settings preview). In Automatic mode, no permission and no explicit preview means no indicator; leaving a meeting clears the indicator on the next completed scan.
+
+Settings also includes optional global shortcuts (Control–Option–Command–1 Automatic, –2 Busy, –3 Presenting), presentation reminder notifications, local diagnostic logging, and daily GitHub update checks. Presenting is explicitly shown in the menu bar until you change modes. The menu and Settings show the last check time/duration; detection details explain the signal used.
 
 To move the visible box, **right-click → Move indicator**, then drag it with the left mouse button and release. Control-click also opens this menu. The new position and display save automatically and appear in Settings. Dropping near an edge keeps the entire indicator within the display's usable area. Right-click again and choose **Cancel move** to leave move mode without dragging. When outside a meeting, enable the Settings preview to position it.
 
@@ -35,13 +38,17 @@ Stop sharing / Stop presenting controls automatically hide the indicator. Only y
 
 ## Detection coverage and limits
 
-Native clients: Microsoft Teams (classic and current bundle IDs), Webex Meetings, Webex, and Zoom Workplace (`us.zoom.xos`). Browser meetings: Google Meet, Teams, Webex, and Zoom in Safari, Chrome, Edge, Firefox, Brave, and Arc, when the browser exposes meeting controls through macOS Accessibility. Zoom detection reads both enabled Meeting menu commands and host/participant call controls, including Stop Share. A recognized Zoom meeting window with multiple meeting toolbar controls also counts when the Leave button is hidden. A window title by itself does not count.
+Native clients: Microsoft Teams (classic and current bundle IDs), Webex Meetings, Webex, and Zoom Workplace (`us.zoom.xos`). Browser meetings: Google Meet, Teams, Webex, and Zoom in Safari, Chrome, Edge, Firefox, Brave, and Arc, when the browser exposes meeting controls through macOS Accessibility. Zoom detection reads host/participant call controls, including Stop Share. Enabled Meeting menu commands only corroborate an actual meeting window and its controls; they cannot keep Busy active on their own after a call ends. A recognized Zoom meeting window with multiple meeting toolbar controls also counts when the Leave button is hidden. A window title by itself does not count.
 
 Detection currently recognizes **English control labels**. It inspects meeting application windows and web accessibility subtrees with a verified meeting-service URL, not arbitrary page text. It does not activate tabs or bring meeting windows to the front. Inactive browser tabs, minimized windows, hidden call toolbars, and client updates can prevent detection. Use Force Busy if needed.
 
 Automatic presentation hiding is best effort. There may be a delay while the app reads sharing controls, and controls in an inactive tab or inaccessible toolbar can be missed. **For immediate hiding before sharing, choose I’m presenting.** This version cannot guarantee the indicator will never appear in captured frames when relying solely on automatic detection. Test your particular client before using it in a live presentation.
 
-Accessibility reads happen in a background task with time and traversal limits. Attribute reads are batched, and breadth-first searches reach toolbars before deep chat history. A menu status reports incomplete scans. The app requests no microphone, camera, screen recording, or browser scripting permission; it records no meeting content and makes no network requests.
+Accessibility reads happen concurrently across apps in background tasks with time and traversal limits. Attribute reads are batched, and breadth-first searches reach toolbars before deep chat history. A menu status reports incomplete scans. Old positive results expire after 12 seconds if no new scan result arrives. The app requests no microphone, camera, screen recording, or browser scripting permission. It records no meeting content. Only optional/manual update checks contact GitHub; notifications are separately opt-in.
+
+Diagnostic logging defaults to state changes. Settings can disable it or enable every-scan details, open the folder, export, or clear logs. Logs are structured local JSON Lines under `~/Library/Logs/MeetingBusy`, limited to a current file plus three backups at 512 KiB each. They contain event times, services, detection signals, permission state, error codes, and scan durations. No titles, participant names, chats, URLs, indicator text, or user paths are logged. Meeting activity times may still be sensitive; exports are only saved where the user chooses and are never uploaded automatically.
+
+Update checks read the latest stable release in `chipset/Busy-Notifier` on GitHub, at most daily when enabled, or when Check for updates is selected. The app validates versions and release URLs and opens the release page for manual download/installation. With no published GitHub release it reports that none is available. Source commits alone do not create app updates.
 
 ### Troubleshooting a missed meeting
 
@@ -61,7 +68,7 @@ A command-line diagnostic is also available (it reports the permissions of that 
 swift test
 ```
 
-The unit tests cover call/prejoin distinctions, service URL validation, actionable controls versus page text, presentation controls, permission state, overrides, Zoom toolbar fallback, and indicator geometry/persistence. They do not simulate real conferencing clients.
+The unit tests cover call/prejoin distinctions, service URL validation, actionable controls versus page text, presentation controls, permission state, overrides, Zoom post-call/menu behavior, stale evidence, timers, release versions/URLs, log rotation and schemas, and indicator geometry/persistence. They do not simulate real conferencing clients. See [manual acceptance checks](MANUAL_TESTS.md) for the live-client and interactive release checks that remain necessary.
 
 Manual checks with Accessibility enabled:
 
@@ -77,7 +84,7 @@ Manual checks with Accessibility enabled:
 
 ## Implementation
 
-`Sources/MeetingDetection` contains pure detection and display rules. `Sources/MeetingBusy` contains the AppKit menu, nonactivating overlay, and bounded Accessibility scanner. `scripts/build-app.sh` packages the executable and `Resources/Info.plist` into an app bundle. No external dependencies.
+`Sources/MeetingDetection` contains detection/display rules, manual mode/timer state, release validation, and structured logging. `Sources/MeetingBusy` contains the AppKit menu, overlay, Accessibility scanner, settings, hotkeys, notifications, and update checks. `scripts/build-app.sh` packages a universal executable and `Resources/Info.plist` into an app bundle. `scripts/package-release.sh` creates ZIP/checksum artifacts and optionally notarizes them. No external package dependencies.
 
 Apple references: [Accessibility API](https://developer.apple.com/documentation/applicationservices/1462085-axuielementcopyattributevalue), [window levels](https://developer.apple.com/documentation/appkit/nswindow/level-swift.property), and [window sharing behavior](https://developer.apple.com/documentation/appkit/nswindow/sharingtype-swift.enum/none).
 

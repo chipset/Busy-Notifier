@@ -6,7 +6,7 @@ This is a development application. Automatic meeting and presentation detection 
 
 ## Install the application
 
-You need macOS 13 or newer and a build for your Mac's processor. The current locally built application is for Apple Silicon. The build script creates an application for the Mac on which it runs.
+You need macOS 13 or newer. The default universal build supports both Apple Silicon and Intel Macs. A build specifically marked native only supports the processor used to build it.
 
 1. Obtain `Meeting Busy.app` from a source you trust. If it arrives in a ZIP archive, double-click the ZIP to extract it.
 2. Drag `Meeting Busy.app` into your **Applications** folder.
@@ -36,7 +36,7 @@ The security exception above and Accessibility permission are separate approvals
 3. If it is missing, click **+**, select `/Applications/Meeting Busy.app`, and click **Open**, then enable its switch.
 4. Quit and reopen Meeting Busy if its menu still says **Setup needed: Accessibility access**.
 
-This implementation does not request microphone, camera, screen recording, Full Disk Access, or browser scripting permission. It does not record meeting audio/video or send meeting information over the network. Appearance settings are saved locally. Detection details show application paths and scan statistics, so review that text before sharing it for troubleshooting.
+This implementation does not request microphone, camera, screen recording, Full Disk Access, or browser scripting permission. It does not record meeting audio/video or send meeting information over the network. Optional update checks contact GitHub, and optional reminders request macOS Notifications permission. Appearance settings are saved locally. Detection details show application paths and scan statistics, so review that text before sharing it for troubleshooting.
 
 You can revoke access at any time by turning off Meeting Busy in the same Accessibility settings. Automatic detection then stops; manual Force Busy and explicit previews can still show the indicator.
 
@@ -66,11 +66,29 @@ Opening a meeting app or its prejoin screen should not show the indicator. Engli
 
 Use **Force Busy** to display your status manually. Return to **Automatic** when finished. Selecting a detection mode also stops any preview.
 
+For a temporary indicator, choose **Busy for… → 15, 30, or 60 minutes**. The menu shows when it ends and then returns to Automatic, including after sleeping through the deadline. Changing modes cancels the timer. Manual modes and timers reset to Automatic when the app is relaunched.
+
+The menu shows the last completed scan time and duration. Settings' detection details also identify the reason for a meeting match, such as active call controls or your stop-sharing control. A stale positive result expires if scans stop completing; closing or leaving a call clears its evidence on the next scan.
+
 ## Hide the indicator before presenting
 
 Before sharing your screen, choose **I’m presenting — hide indicator** from the menu. The indicator hides immediately. After sharing ends, return to **Automatic**.
 
 The app also tries to hide automatically when it finds your Stop sharing, Stop Share, or Stop presenting control. This can be delayed or missed, so use the manual presenting option before sharing when it matters that the box does not appear to your audience. Another participant presenting should not hide your status. Presentation hiding takes precedence over Force Busy and previews.
+
+While manual Presenting is selected, the menu bar explicitly says **Presenting** and the menu shows how long it has been active. In Settings, optionally enable **Remind me to return to Automatic** and select a delay. Approve Notifications permission if requested. The reminder offers a Return to Automatic action; it never turns your indicator back on by itself. If notifications are denied or silenced, use the menu bar reminder and switch modes manually.
+
+## Keyboard shortcuts
+
+Enable **Settings… → Keyboard shortcuts → Enable global shortcuts**. These work while another app is active:
+
+| Shortcut | Action |
+| --- | --- |
+| Control–Option–Command–1 | Automatic |
+| Control–Option–Command–2 | Force Busy |
+| Control–Option–Command–3 | Presenting |
+
+The Settings status reports whether registration succeeded. If another app already uses a shortcut, disable the conflict or leave Meeting Busy's global shortcuts off. Shortcuts do not require Input Monitoring permission.
 
 ## Customize the indicator
 
@@ -107,6 +125,20 @@ After installing in Applications, select **Launch at login** from the menu. A ch
 
 To stop the app, select **Quit Meeting Busy** from its menu bar menu. To stop it from returning at login, turn off **Launch at login** before quitting.
 
+## Diagnostic logging
+
+Under **Settings… → Diagnostic logging**, choose Off, State changes (the default), or Every scan. Logs stay in `~/Library/Logs/MeetingBusy`. The current log and three backups are each limited to 512 KiB. Old entries are discarded as files rotate.
+
+Entries include event timestamps, detected services, detection reasons, permission state, numeric error codes, and scan durations. They exclude meeting titles, participant names, chat text, URLs, custom indicator text, and user paths. Meeting activity times can still be sensitive.
+
+Use **Open log folder**, **Export…**, or **Clear logs**. Export creates a JSON Lines file at your chosen location; review it before sharing it with the maintainer. Nothing is uploaded automatically. Clearing the app's logs does not delete previously exported copies. Off stops new entries but leaves existing logs until you clear them.
+
+## Check for updates
+
+Choose **Check for updates…** from the menu, or **Check now** in Settings. Optional daily checks and update notifications are off until you enable them. Notifications require a separate macOS permission; daily checks contact GitHub even if notification permission is off.
+
+Checks read the latest published stable release from `chipset/Busy-Notifier` on GitHub. No meeting information or diagnostic logs are sent. GitHub receives an ordinary API request and its usual connection metadata. The status distinguishes an available update, no published release, and a failed check. When available, use **View release** or the update menu item to open the GitHub page. Review the release's signing status, download its application ZIP, and install the new version yourself; the app does not download or replace itself.
+
 ## Update or repair permissions
 
 Locally signed builds may need Accessibility permission granted again after an update or rebuild.
@@ -130,6 +162,8 @@ If you cannot find the app in the file picker, press **Command–Shift–G**, en
 ## Uninstall
 
 Turn off Launch at login, quit Meeting Busy, remove its entry from Accessibility settings, then move the application from Applications to the Trash. Appearance preferences may remain saved locally.
+
+If you want to remove diagnostic history, use Clear logs before quitting or delete `~/Library/Logs/MeetingBusy` afterward. Exported copies are separate files. You can also revoke optional notification permission in System Settings → Notifications.
 
 ## Build from source
 

@@ -11,6 +11,7 @@ struct ScanResult: Sendable {
     var evidence: [MeetingEvidence] = []
     var incomplete = false
     var details: [String] = []
+    var failureCodes: [Int] = []
 }
 
 /// Batched IPC and breadth-first traversal reach toolbars before deep chat history.
@@ -19,6 +20,22 @@ enum AccessibilityScanner {
         "com.apple.Safari", "com.google.Chrome", "com.google.Chrome.beta",
         "com.microsoft.edgemac", "org.mozilla.firefox", "com.brave.Browser", "company.thebrowser.Browser"
     ]
+
+    static func scanConcurrently(_ targets: [ApplicationTarget]) async -> ScanResult {
+        guard !targets.isEmpty else { return scan([]) }
+        return await withTaskGroup(of: ScanResult.self) { group in
+            for target in targets { group.addTask { scan([target]) } }
+            var result = ScanResult()
+            for await partial in group {
+                result.evidence += partial.evidence
+                result.details += partial.details
+                result.failureCodes += partial.failureCodes
+                result.incomplete = result.incomplete || partial.incomplete
+            }
+            result.details.sort()
+            return result
+        }
+    }
 
     static func scan(_ targets: [ApplicationTarget]) -> ScanResult {
         var result = ScanResult()
@@ -35,16 +52,18 @@ enum AccessibilityScanner {
             let error = AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &windowsRef)
             guard error == .success, let windows = windowsRef as? [AXUIElement] else {
                 result.incomplete = true
+                result.failureCodes.append(Int(error.rawValue))
                 result.details.append("\(target.bundleID): cannot read windows (AX error \(error.rawValue)).")
                 continue
             }
             let startCount = result.evidence.count
             var controlsRead = 0
             var nodesRead = 0
-            // Enabled Meeting menu commands remain useful when Zoom's toolbar is hidden.
+            var menuControls: [Control] = []
+            // Menu commands only corroborate a live meeting window; they never start a call alone.
             if native == .zoom, let menu = attribute(app, kAXMenuBarAttribute), CFGetTypeID(menu) == AXUIElementGetTypeID() {
                 let element = unsafeDowncast(menu, to: AXUIElement.self)
-                walk(element, service: .zoom, title: nil, deadline: Date().addingTimeInterval(0.9),
+                menuControls = walk(element, service: .zoom, title: nil, deadline: Date().addingTimeInterval(0.9),
                      allowMenuItems: true, controlsRead: &controlsRead, nodesRead: &nodesRead, result: &result)
             }
             let appDeadline = Date().addingTimeInterval(native == .zoom ? 3.5 : 2)
@@ -53,18 +72,21 @@ enum AccessibilityScanner {
                 let title = native == .zoom ? attribute(window, kAXTitleAttribute) as? String : nil
                 walk(window, service: native, title: title,
                      deadline: min(appDeadline, Date().addingTimeInterval(1)), allowMenuItems: false,
-                     controlsRead: &controlsRead, nodesRead: &nodesRead, result: &result)
+                     controlsRead: &controlsRead, nodesRead: &nodesRead, result: &result, menuControls: menuControls)
             }
             let matched = result.evidence.count - startCount
             result.details.append("\(target.bundleID): \(windows.count) windows, \(nodesRead) elements, \(controlsRead) controls, \(matched) meeting matches.")
+            for evidence in result.evidence.dropFirst(startCount) {
+                result.details.append("\(evidence.service.rawValue): \(evidence.signal.rawValue).")
+            }
         }
         if result.incomplete { result.details.append("Some reads failed or reached the scan limit.") }
         return result
     }
 
-    private static func walk(_ root: AXUIElement, service: MeetingService?, title: String?, deadline: Date,
+    @discardableResult private static func walk(_ root: AXUIElement, service: MeetingService?, title: String?, deadline: Date,
                              allowMenuItems: Bool, controlsRead: inout Int, nodesRead: inout Int,
-                             result: inout ScanResult) {
+                             result: inout ScanResult, menuControls: [Control] = []) -> [Control] {
         let attributes = [kAXRoleAttribute, kAXTitleAttribute, kAXDescriptionAttribute,
             kAXHelpAttribute, kAXEnabledAttribute, kAXChildrenAttribute, kAXURLAttribute,
             kAXDocumentAttribute, kAXValueAttribute] as CFArray
@@ -81,6 +103,7 @@ enum AccessibilityScanner {
             let error = AXUIElementCopyMultipleAttributeValues(element, attributes, [], &valuesRef)
             guard error == .success, let values = valuesRef as? [Any], values.count == 9 else {
                 result.incomplete = true
+                if !result.failureCodes.contains(Int(error.rawValue)) { result.failureCodes.append(Int(error.rawValue)) }
                 continue
             }
             nodesRead += 1
@@ -106,9 +129,10 @@ enum AccessibilityScanner {
             let children = values[5] as? [AXUIElement] ?? []
             queue.append(contentsOf: children.map { ($0, depth + 1) })
         }
-        if let service, let evidence = Detection.evaluate(service: service, controls: controls, windowTitle: title) {
+        if !allowMenuItems, let service, let evidence = Detection.evaluate(service: service, controls: controls, windowTitle: title, menuControls: menuControls) {
             result.evidence.append(evidence)
         }
+        return controls
     }
 
     private static func attribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {

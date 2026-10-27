@@ -1,6 +1,6 @@
 import Foundation
 
-public enum MeetingService: String, Sendable, CaseIterable {
+public enum MeetingService: String, Sendable, CaseIterable, Codable {
     case webex = "Webex"
     case teams = "Microsoft Teams"
     case meet = "Google Meet"
@@ -19,10 +19,19 @@ public struct Control: Sendable {
 public struct MeetingEvidence: Sendable, Equatable {
     public let service: MeetingService
     public let isPresenting: Bool
-    public init(service: MeetingService, isPresenting: Bool) {
+    public let signal: DetectionSignal
+    public init(service: MeetingService, isPresenting: Bool, signal: DetectionSignal = .callControls) {
         self.service = service
         self.isPresenting = isPresenting
+        self.signal = signal
     }
+}
+
+public enum DetectionSignal: String, Codable, Sendable {
+    case callControls = "Active call controls"
+    case sharingControl = "Your stop-sharing control"
+    case zoomToolbar = "Zoom meeting window and toolbar"
+    case zoomMenu = "Zoom meeting window and enabled Meeting command"
 }
 
 public enum Detection {
@@ -45,7 +54,7 @@ public enum Detection {
     }
 
     // Only actionable controls count. Chat messages and page text cannot start a meeting.
-    public static func evaluate(service: MeetingService, controls: [Control], windowTitle: String? = nil) -> MeetingEvidence? {
+    public static func evaluate(service: MeetingService, controls: [Control], windowTitle: String? = nil, menuControls: [Control] = []) -> MeetingEvidence? {
         let labels = controls.filter(\.actionable).map(\.label)
         let endControls: [String]
         switch service {
@@ -70,8 +79,16 @@ public enum Detection {
         }.count
         let prejoin = labels.contains(where: { matches($0, phrases: ["join", "join meeting", "join now", "join webinar"]) })
         let zoomToolbar = service == .zoom && zoomWindow && zoomToolbarCount >= 2 && !prejoin
-        guard presenting || teamsCall || zoomCall || zoomToolbar || labels.contains(where: { matches($0, phrases: endControls) }) else { return nil }
-        return MeetingEvidence(service: service, isPresenting: presenting)
+        // Menu commands may linger after leaving. They only corroborate an actual meeting window.
+        let menuLabels = menuControls.filter(\.actionable).map(\.label)
+        let zoomMenu = service == .zoom && zoomWindow && !prejoin
+            && (zoomToolbarCount > 0 || labels.contains(where: { matches($0, phrases: ["mute", "unmute", "start video", "stop video", "join audio"]) }))
+            && menuLabels.contains(where: { matches($0, phrases: endControls) })
+        let endedZoom = service == .zoom && labels.contains(where: { matches($0, phrases: ["rejoin", "return to home", "back to home", "join a meeting", "new meeting"]) })
+        guard !endedZoom, presenting || teamsCall || zoomCall || zoomToolbar || zoomMenu || labels.contains(where: { matches($0, phrases: endControls) }) else { return nil }
+        let sharingMenu = zoomMenu && menuLabels.contains(where: { matches($0, phrases: ["stop sharing", "stop share", "stop presenting"]) })
+        let signal: DetectionSignal = presenting || sharingMenu ? .sharingControl : (zoomToolbar ? .zoomToolbar : (zoomMenu ? .zoomMenu : .callControls))
+        return MeetingEvidence(service: service, isPresenting: presenting || sharingMenu, signal: signal)
     }
 
     private static func matches(_ label: String, phrases: [String]) -> Bool {
@@ -82,7 +99,7 @@ public enum Detection {
     }
 }
 
-public enum DisplayMode: String, CaseIterable, Sendable {
+public enum DisplayMode: String, CaseIterable, Sendable, Codable {
     case automatic = "Automatic"
     case busy = "Force Busy"
     case presenting = "I’m presenting — hide indicator"
@@ -102,7 +119,7 @@ public enum IndicatorPolicy {
     }
 }
 
-public enum IndicatorReason: Equatable, Sendable {
+public enum IndicatorReason: String, Equatable, Sendable, Codable {
     case presenting, forcedBusy, meeting, preview, idle, setupNeeded
 
     public var showsIndicator: Bool {

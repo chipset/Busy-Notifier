@@ -2,28 +2,56 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 configuration="${1:-release}"
+architecture="${2:-universal}"
 export CLANG_MODULE_CACHE_PATH="$PWD/.build/ModuleCache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$CLANG_MODULE_CACHE_PATH"
 if [[ "$configuration" != "release" && "$configuration" != "debug" ]]; then
-  echo "Usage: $0 [release|debug]" >&2
+  echo "Usage: $0 [release|debug] [universal|native]" >&2
   exit 1
 fi
-build_options=(--disable-sandbox --cache-path "$PWD/.build/cache" --config-path "$PWD/.build/config" --security-path "$PWD/.build/security" -c "$configuration")
-if [[ "$configuration" == "release" ]]; then
-  build_options+=(-debug-info-format none)
-fi
-swift build "${build_options[@]}"
-binary_dir="$(swift build "${build_options[@]}" --show-bin-path)"
+case "$architecture" in
+  universal) architectures=(arm64 x86_64) ;;
+  native) architectures=("$(uname -m)") ;;
+  *) echo "Architecture must be universal or native." >&2; exit 1 ;;
+esac
+binaries=()
+for target_architecture in "${architectures[@]}"; do
+  build_options=(--disable-sandbox --cache-path "$PWD/.build/cache" --config-path "$PWD/.build/config" --security-path "$PWD/.build/security" --scratch-path "$PWD/.build/architectures/$target_architecture" --triple "$target_architecture-apple-macosx13.0" -c "$configuration")
+  if [[ "$configuration" == "release" ]]; then build_options+=(-debug-info-format none); fi
+  swift build "${build_options[@]}"
+  binary_dir="$(swift build "${build_options[@]}" --show-bin-path)"
+  binaries+=("$binary_dir/MeetingBusy")
+done
 app="$PWD/dist/Meeting Busy.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 staged_binary="$(mktemp "$app/Contents/MacOS/.MeetingBusy.XXXXXX")"
-trap 'rm -f "$staged_binary"' EXIT
-cp "$binary_dir/MeetingBusy" "$staged_binary"
-chmod +x "$staged_binary"
+cleanup_staged_binary() {
+  if [[ -f "$staged_binary" ]]; then unlink "$staged_binary"; fi
+}
+trap cleanup_staged_binary EXIT
+if [[ "$architecture" == "universal" ]]; then
+  lipo -create "${binaries[@]}" -output "$staged_binary"
+else
+  cp "${binaries[0]}" "$staged_binary"
+fi
+chmod 755 "$staged_binary"
 mv -f "$staged_binary" "$app/Contents/MacOS/MeetingBusy"
 cp Resources/Info.plist "$app/Contents/Info.plist"
 swift scripts/make-icon.swift "$PWD/.build/AppIcon.iconset" "$app/Contents/Resources/AppIcon.icns"
 cp "$PWD/.build/AppIcon.iconset/icon_512x512@2x.png" "$PWD/dist/AppIcon.png"
-codesign --force --sign - --identifier local.meetingbusy "$app"
+signing_identity="${MEETING_BUSY_SIGNING_IDENTITY:--}"
+if [[ "$signing_identity" == "-" ]]; then
+  codesign --force --sign - --identifier local.meetingbusy "$app"
+else
+  codesign --force --options runtime --timestamp --sign "$signing_identity" --identifier local.meetingbusy "$app"
+fi
+codesign --verify --deep --strict "$app"
+if [[ "$architecture" == "universal" ]]; then
+  binary_architectures="$(lipo -archs "$app/Contents/MacOS/MeetingBusy")"
+  if [[ " $binary_architectures " != *" arm64 "* || " $binary_architectures " != *" x86_64 "* ]]; then
+    echo "Universal build is missing a required architecture: $binary_architectures" >&2
+    exit 1
+  fi
+fi
 touch "$app"
 echo "Built $app"

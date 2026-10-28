@@ -149,3 +149,12 @@ final class DetectionTests: XCTestCase {
         XCTAssertFalse(IndicatorPolicy.reason(mode: .presenting, evidence: [], trusted: false, preview: true).showsIndicator)
     }
 }
+
+final class CrossProviderEndedStateTests: XCTestCase {
+    func testNewMeetingButtonOnlyEndsZoomCalls() {
+        XCTAssertNotNil(Detection.evaluate(service: .teams, controls: [Control("Leave"), Control("Unmute"), Control("New meeting")]))
+        XCTAssertNotNil(Detection.evaluate(service: .meet, controls: [Control("Leave call"), Control("Join a meeting")]))
+        XCTAssertNil(Detection.evaluate(service: .zoom, controls: [Control("Leave meeting"), Control("New meeting")]))
+        XCTAssertNil(Detection.evaluate(service: .meet, controls: [Control("Leave call"), Control("Rejoin")]))
+    }
+}

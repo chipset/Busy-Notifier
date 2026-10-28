@@ -84,7 +84,7 @@ Test the packaged app after ZIP extraction on an Apple Silicon Mac and an Intel 
 ## Safari temporary-extension pairing
 
 - On a Safari version offering Add Temporary Extension, load the safari-temporary folder or ZIP and verify Meeting Busy (Temporary) appears even if the embedded native extension does not. Enable website and loopback permissions.
-- Copy the code from the current running app and pair in the popup. Confirm a connected popup, live call and own-sharing state, inactive tabs, pause, service switches, tab closure, app quit, and stale-evidence expiry.
+- Use Pair automatically in the popup, confirm the Allow prompt appears in the app, and decline once to verify nothing connects; then also try a manual pairing code. Confirm a connected popup, live call and own-sharing state, inactive tabs, pause, service switches, tab closure, app quit, and stale-evidence expiry.
 - Check an invalid pairing code cannot connect, re-pair after replacing the app, and verify ordinary HTTP(S) origins cannot send authenticated state. A Safari-origin preflight must not write a state snapshot.
 - Quit Safari and verify the extension is removed. Reload it and pair again when needed. Record Safari version and actual UI results separately from the native-handler tests.
 

@@ -8,6 +8,6 @@ for browser in chromium firefox safari safari-temporary; do
   cp "BrowserExtension/$browser/manifest.json" "$output/$browser/manifest.json"
 done
 cp BrowserExtension/safari/safari-transport.js "$output/safari/"
-cp BrowserExtension/safari-temporary/safari-transport.js BrowserExtension/safari-temporary/popup.html BrowserExtension/safari-temporary/popup.js "$output/safari-temporary/"
+cp BrowserExtension/safari-temporary/safari-transport.js BrowserExtension/safari-temporary/safari-pairing.js BrowserExtension/safari-temporary/popup.html BrowserExtension/safari-temporary/popup.js "$output/safari-temporary/"
 cp BrowserExtension/identity.json "$output/identity.json"
 if [[ -f BrowserExtension/README.md ]]; then cp BrowserExtension/README.md "$output/README.md"; fi

@@ -43,3 +43,11 @@ test('Spanish, French and German controls detect calls and own sharing', () => {
   }
   assert.equal(detector.classify('Zoom', controls(['Alice is sharing'])).presenting, false);
 });
+test('mid-call "New meeting" and "Join a meeting" buttons do not end Teams or Meet calls', () => {
+  assert.equal(detector.classify('Microsoft Teams', controls(['Leave', 'Unmute', 'New meeting'])).inMeeting, true);
+  assert.equal(detector.classify('Google Meet', controls(['Leave call', 'Join a meeting'])).inMeeting, true);
+  assert.equal(detector.classify('Zoom', controls(['Leave meeting', 'New meeting'])).inMeeting, false);
+});
+test('Webex combined leave/end labels are detected', () => {
+  for (const label of ['Leave / end meeting', 'End or leave meeting']) assert.equal(detector.classify('Webex', controls([label])).inMeeting, true);
+});

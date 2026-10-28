@@ -27,7 +27,14 @@ final class BrowserBridgeController: ObservableObject {
     private(set) var connected = false
     private(set) var lastObservedAt: Date?
     @Published private(set) var safariStatus = "Safari bridge is off."
+    /// Called on the main actor when the Safari extension posts fresh state, so the indicator updates without waiting for the next poll.
+    var onSafariUpdate: (() -> Void)?
+    /// True once a browser connection was seen this session and has since gone quiet.
+    private(set) var lostConnection = false
+    private var everConnected = false
+    private var lastPrune = Date.distantPast
     private var safariServer: SafariBridgeServer?
+    private let pairing = SafariPairingCoordinator()
     private var configuration: BrowserBridgePolicy?
     private let store = BrowserBridgeStore(directory: BrowserBridgeStore.defaultDirectory)
 
@@ -36,6 +43,8 @@ final class BrowserBridgeController: ObservableObject {
         guard policy != configuration else { return }
         configuration = policy
         connected = false
+        lostConnection = false
+        everConnected = false
         lastObservedAt = nil
         store.clearSnapshots()
         do { try store.writePolicy(policy) }
@@ -45,9 +54,10 @@ final class BrowserBridgeController: ObservableObject {
                let data = try? Data(contentsOf: url),
                let settings = try? JSONDecoder().decode(SafariBridgeConfiguration.self, from: data) {
                 do {
-                    safariServer = try SafariBridgeServer(configuration: settings, store: store) { [weak self] message in
+                    pairing.onPrompt = { [weak self] origin in Task { @MainActor in self?.confirmPairing(origin: origin) } }
+                    safariServer = try SafariBridgeServer(configuration: settings, pairingToken: pairingToken, pairing: pairing, store: store, onStatus: { [weak self] message in
                         Task { @MainActor in self?.safariStatus = message }
-                    }
+                    }, onUpdate: { [weak self] in Task { @MainActor in self?.onSafariUpdate?() } })
                 } catch { safariStatus = "Could not start the Safari bridge. Quit other copies of Meeting Busy and try again." }
             } else { safariStatus = "This build does not include the Safari bridge. Use the packaged app." }
         } else if !enabled { safariServer?.stop(); safariServer = nil; safariStatus = "Safari bridge is off." }
@@ -56,12 +66,31 @@ final class BrowserBridgeController: ObservableObject {
 
     func evidence() -> [MeetingEvidence] {
         guard let policy = configuration, policy.enabled, !policy.paused, !policy.services.isEmpty else { return [] }
+        if Date().timeIntervalSince(lastPrune) > 60 { lastPrune = Date(); store.pruneSnapshots() }
         let snapshots = store.freshSnapshots()
         connected = !snapshots.isEmpty
+        if connected { everConnected = true }
+        lostConnection = everConnected && !connected
         lastObservedAt = snapshots.map(\.receivedAt).max()
         let evidence = BrowserBridgeStore.evidence(from: snapshots, policy: policy)
-        status = connected ? "\(snapshots.count) browser connection(s), \(evidence.count) active meeting service(s)." : "No browser connection. Install the bridge and connect the extension."
+        status = connected ? "\(snapshots.count) browser connection(s), \(evidence.count) active meeting service(s)."
+            : (lostConnection ? "The browser extension stopped reporting. Safari removes temporary extensions on quit or after 24 hours; add it again and pair."
+               : "No browser connection. Install the bridge and connect the extension.")
         return evidence
+    }
+
+    private var pairingToken: String? { SafariPairingToken.loadOrCreate(directory: store.directory) }
+
+    private func confirmPairing(origin: String) {
+        let alert = NSAlert()
+        alert.messageText = "Allow a Safari extension to connect?"
+        alert.informativeText = "A Safari extension asked to send meeting and screen-sharing state to Meeting Busy. Allow it only if you just added “Meeting Busy (Temporary)” in Safari yourself.\n\nExtension ID: \(origin.replacingOccurrences(of: "safari-web-extension://", with: ""))"
+        alert.addButton(withTitle: "Allow")
+        alert.addButton(withTitle: "Don’t Allow")
+        NSApp.activate(ignoringOtherApps: true)
+        let approved = alert.runModal() == .alertFirstButtonReturn
+        pairing.resolve(origin: origin, approve: approved)
+        safariStatus = approved ? "Safari extension approved." : "Safari extension request was declined."
     }
 
     private var applicationSupport: URL { FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first! }
@@ -126,11 +155,12 @@ final class BrowserBridgeController: ObservableObject {
     func copySafariPairingCode() {
         guard let url = Bundle.main.resourceURL?.appendingPathComponent("SafariBridge.json"),
               let data = try? Data(contentsOf: url),
-              let settings = try? JSONDecoder().decode(SafariBridgeConfiguration.self, from: data) else {
+              let settings = try? JSONDecoder().decode(SafariBridgeConfiguration.self, from: data),
+              let token = pairingToken else {
             setupStatus = "This build has no Safari pairing configuration."; return
         }
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString("\(settings.port):\(settings.token)", forType: .string)
+        NSPasteboard.general.setString("\(settings.port):\(token)", forType: .string)
         setupStatus = "Pairing code copied. Paste it only into the Meeting Busy (Temporary) extension popup and choose Pair with the Mac app. Keep browser integration on."
     }
 
@@ -157,9 +187,9 @@ struct BrowserIntegrationSettings: View {
             if bridge.browser == .safari {
                 HStack {
                     Button("Open Safari extension folder") { bridge.install() }
-                    Button("Copy Safari pairing code") { features.browserIntegrationEnabled = true; bridge.copySafariPairingCode() }
+                    Button("Copy pairing code (manual)") { features.browserIntegrationEnabled = true; bridge.copySafariPairingCode() }
                 }
-                Text("Safari Settings → Developer → Add Temporary Extension: select the opened folder, allow supported sites, then pair in the extension popup. No certificate is required. Safari removes this extension on quit or after 24 hours.")
+                Text("Safari Settings → Developer → Add Temporary Extension: select the opened folder, allow supported sites, then choose Pair automatically in the extension popup and click Allow when Meeting Busy asks. No certificate is required. Safari removes this extension on quit or after 24 hours.")
                     .font(.caption).foregroundStyle(.secondary)
                 Text(bridge.safariStatus).font(.caption).foregroundStyle(.secondary)
             } else { HStack {

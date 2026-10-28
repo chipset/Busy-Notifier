@@ -6,3 +6,4 @@ dist/
 *.p8
 *.jsonl
 *.log
+AGENT_HANDOFF.txt

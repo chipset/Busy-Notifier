@@ -1,8 +1,10 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Meeting Busy</title><link rel="stylesheet" href="popup.css"></head>
 <body><h1>Meeting Busy</h1><p id="status">Checking the local bridge…</p><p id="active"></p>
-<form id="pair"><label for="code">Pairing code from Meeting Busy Settings</label><p><input id="code" type="password" autocomplete="off" placeholder="Paste pairing code" required></p><button type="submit">Pair with the Mac app</button></form>
+<button id="pair-auto">Pair automatically</button><p id="pair-state" role="status"></p>
+<details><summary>Pair with a code instead</summary>
+<form id="pair"><label for="code">Pairing code from Meeting Busy Settings</label><p><input id="code" type="password" autocomplete="off" placeholder="Paste pairing code" required></p><button type="submit">Pair with the Mac app</button></form></details>
 <p id="pair-result" role="status"></p><button id="reconnect">Connect open meeting tabs</button>
-<p class="help">In Meeting Busy Settings → Browser integration → Safari, choose Copy Safari pairing code. Paste it here. Keep the app open and integration enabled.</p>
+<p class="help">Keep Meeting Busy open with browser integration enabled, choose Pair automatically, then click Allow in the Meeting Busy window. A pairing code from Settings also works.</p>
 <p class="help">Only call/sharing flags are sent to this Mac. Safari removes temporary extensions when it quits or after 24 hours; add this folder again and pair when needed.</p>
 <script src="popup.js"></script></body></html>

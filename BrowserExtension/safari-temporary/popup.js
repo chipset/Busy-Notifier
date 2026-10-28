@@ -7,9 +7,15 @@ async function refresh(type = "status") {
     document.getElementById("active").textContent = `${result.active} active meeting frame${result.active === 1 ? "" : "s"}`;
   } catch (_) { document.getElementById("status").textContent = "Extension is restarting. Open this popup again."; }
 }
+async function pairState(type = "pair-status") {
+  try { const result = await api.runtime.sendMessage({type}); document.getElementById("pair-state").textContent = result.message || ""; }
+  catch (_) { document.getElementById("pair-state").textContent = "Extension is restarting. Open this popup again."; }
+}
+document.getElementById("pair-auto").addEventListener("click", () => pairState("pair"));
 document.getElementById("reconnect").addEventListener("click", () => refresh("reconnect"));
 void refresh();
-setInterval(() => refresh(), 1000);
+void pairState();
+setInterval(() => { void refresh(); void pairState(); }, 1000);
 
 document.getElementById("pair").addEventListener("submit", async event => {
   event.preventDefault();

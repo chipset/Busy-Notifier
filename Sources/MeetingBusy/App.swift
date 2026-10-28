@@ -27,6 +27,14 @@ enum MeetingBusyApp {
             for item in result.evidence { print("\(item.service.rawValue): \(item.isPresenting ? "presenting" : "in meeting")") }
             return
         }
+        // Two copies would fight over the Safari bridge port; hand over to the running one instead.
+        if let id = Bundle.main.bundleIdentifier,
+           let running = NSRunningApplication.runningApplications(withBundleIdentifier: id)
+            .first(where: { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier && !$0.isTerminated }) {
+            DistributedNotificationCenter.default().postNotificationName(AppDelegate.showSettingsNotification, object: nil, userInfo: nil, deliverImmediately: true)
+            print("Meeting Busy is already running from \(running.bundleURL?.path ?? "another location").")
+            return
+        }
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate
@@ -72,6 +80,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var configuredBrowserIntegration: Bool?
     private var lastScanFailureCodes: [Int] = []
     private var notificationConfiguration = ""
+    private var lastScanStarted = Date.distantPast
+    nonisolated static let showSettingsNotification = Notification.Name("local.meetingbusy.show-settings")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         appearance.onChange = { [weak self] in self?.updateUI() }
@@ -80,6 +90,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.onMove = { [weak self] origin, screen, displayID in
             guard let self else { return }
             self.appearance.appearance = self.appearance.appearance.repositioned(to: origin, in: screen, displayID: displayID)
+        }
+        browserBridge.onSafariUpdate = { [weak self] in self?.poll() }
+        DistributedNotificationCenter.default().addObserver(forName: Self.showSettingsNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.settingsController.show() }
         }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.image = NSImage(systemSymbolName: "person.crop.circle.badge.clock", accessibilityDescription: "Meeting Busy")
@@ -165,15 +179,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         updateUI()
         guard !scanning else { return }
-        scanning = true
-        let generation = scanGeneration
-        let scanStarted = Date()
         let enabledServices = features.enabledServices
         let targets = NSWorkspace.shared.runningApplications.compactMap { app -> ApplicationTarget? in
             guard let id = app.bundleIdentifier,
                   Detection.nativeService(bundleID: id).map({ enabledServices.contains($0) }) ?? AccessibilityScanner.browserIDs.contains(id) else { return nil }
             return ApplicationTarget(pid: app.processIdentifier, bundleID: id)
         }
+        // Browser-only and idle while the extension is reporting: the Accessibility scan is just a fallback, so slow it down.
+        let nativeRunning = targets.contains { Detection.nativeService(bundleID: $0.bundleID) != nil }
+        if !nativeRunning, tracker.evidence.isEmpty, browserBridge.connected, Date().timeIntervalSince(lastScanStarted) < 6 { return }
+        scanning = true
+        let generation = scanGeneration
+        let scanStarted = Date()
+        lastScanStarted = scanStarted
         Task { [weak self] in
             let result = await AccessibilityScanner.scanConcurrently(targets, enabledServices: enabledServices)
             guard let self else { return }
@@ -233,8 +251,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .meeting: state = "In a meeting: " + Set(evidence.map { $0.service.rawValue }).sorted().joined(separator: ", ")
         case .preview:
             state = features.pause.isPaused ? "Preview — detection paused" : (trusted ? "Preview — no meeting detected" : "Preview — Accessibility setup needed")
-        case .setupNeeded: state = features.browserIntegrationEnabled ? "Connect browser extension or grant Accessibility access" : "Setup needed: Accessibility access"
-        case .idle: state = !trusted && browserBridge.connected ? "No browser meeting detected — native Accessibility is off" : (incomplete ? "Unable to inspect some meeting windows" : "No active meeting detected")
+        case .setupNeeded: state = browserBridge.lostConnection ? "Browser extension stopped reporting — re-add and pair it in Safari" : features.browserIntegrationEnabled ? "Connect browser extension or grant Accessibility access" : "Setup needed: Accessibility access"
+        case .idle:
+            if browserBridge.lostConnection { state = "Browser extension stopped reporting — re-add and pair it in Safari" }
+            else { state = !trusted && browserBridge.connected ? "No browser meeting detected — native Accessibility is off" : (incomplete ? "Unable to inspect some meeting windows" : "No active meeting detected") }
         case .paused: state = features.pause.resumeAt.map { "Detection paused until \($0.formatted(date: .omitted, time: .shortened))" } ?? "Detection paused until resumed"
         case .disabled: state = "All meeting services are disabled"
         }

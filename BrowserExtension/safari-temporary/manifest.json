@@ -43,6 +43,7 @@
     "scripts": [
       "detector.js",
       "safari-transport.js",
+      "safari-pairing.js",
       "background.js"
     ],
     "persistent": true

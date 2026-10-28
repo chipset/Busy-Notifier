@@ -75,6 +75,15 @@ public struct BrowserBridgeStore: Sendable {
     public func clearSnapshots() {
         for url in snapshotFiles() { try? FileManager.default.removeItem(at: url) }
     }
+    /// Extensions create a new session file each time their background page starts; remove ones that went quiet.
+    @discardableResult public func pruneSnapshots(olderThan age: TimeInterval = 300, at now: Date = Date()) -> Int {
+        var removed = 0
+        for url in snapshotFiles() {
+            let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            if now.timeIntervalSince(modified) >= age, (try? FileManager.default.removeItem(at: url)) != nil { removed += 1 }
+        }
+        return removed
+    }
     public func freshSnapshots(at now: Date = Date()) -> [BrowserBridgeSnapshot] {
         let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .millisecondsSince1970
         return Array(snapshotFiles().compactMap { url -> BrowserBridgeSnapshot? in
@@ -93,7 +102,7 @@ public struct BrowserBridgeStore: Sendable {
     }
     private func snapshotURL(_ id: UUID) -> URL { directory.appendingPathComponent("session-\(id.uuidString).json") }
     private func snapshotFiles() -> [URL] {
-        (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.fileSizeKey]))?.filter {
+        (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey]))?.filter {
             $0.lastPathComponent.hasPrefix("session-") && $0.pathExtension == "json"
                 && UUID(uuidString: String($0.deletingPathExtension().lastPathComponent.dropFirst(8))) != nil
         } ?? []

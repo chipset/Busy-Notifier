@@ -5,7 +5,8 @@
   const detector = globalThis.MeetingBusyDetector;
   const service = detector.serviceForURL(location.href);
   if (!service) return;
-  let port, observer, timer, permitted = false, scheduled = false, previous = "", stopped = false;
+  const minimumScanGap = 300;
+  let port, observer, timer, scanTimer, lastScan = 0, permitted = false, previous = "", stopped = false;
   function publish(state) {
     const signature = JSON.stringify(state);
     if (!port || signature === previous) return;
@@ -14,6 +15,7 @@
   }
   function scan() {
     if (!permitted) return;
+    lastScan = Date.now();
     const controls = [];
     for (const element of document.querySelectorAll('button,[role="button"],[role="menuitem"]')) {
       if (element.disabled || element.getAttribute("aria-disabled") === "true" || element.closest('[inert],[aria-hidden="true"]')) continue;
@@ -25,16 +27,16 @@
     }
     publish(detector.classify(service, controls));
   }
+  // Meet and Teams mutate the DOM continuously; collapse bursts into one scan per gap.
   function schedule() {
-    if (scheduled || !permitted) return;
-    scheduled = true;
-    queueMicrotask(() => { scheduled = false; scan(); });
+    if (scanTimer || !permitted) return;
+    scanTimer = setTimeout(() => { scanTimer = undefined; scan(); }, Math.max(0, lastScan + minimumScanGap - Date.now()));
   }
   function setPolicy(policy) {
     const enabled = Boolean(policy && policy.enabled && !policy.paused && Array.isArray(policy.services) && policy.services.includes(service));
     if (enabled === permitted) { if (enabled) scan(); return; }
     permitted = enabled;
-    observer?.disconnect(); clearInterval(timer);
+    observer?.disconnect(); clearInterval(timer); clearTimeout(scanTimer); scanTimer = undefined;
     if (!enabled) { previous = ""; publish({inMeeting: false, presenting: false}); return; }
     observer = new MutationObserver(schedule);
     observer.observe(document.documentElement, {subtree: true, childList: true, characterData: true, attributes: true,

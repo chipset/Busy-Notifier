@@ -63,6 +63,16 @@ After committing the current source and `RELEASE_NOTES.md`, the publishing helpe
 ./scripts/publish-release.sh
 ```
 
+For a Developer ID signed and notarized GitHub release, update the version and release notes, then run:
+
+```sh
+MEETING_BUSY_SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)' \
+MEETING_BUSY_NOTARY_PROFILE='MeetingBusyNotary' \
+./scripts/publish-release.sh --notarize
+```
+
+This option rebuilds, signs, notarizes, staples, and verifies the final archive before uploading it. Running the default publishing command after a separate notarized build would rebuild the archive without notarization.
+
 Its checks also require Node.js and Python 3. It requires the GitHub CLI (`gh`) to be installed and authenticated, a clean `main` branch, and the expected GitHub origin. It checks for existing tags/releases, fetches remote main, verifies the remote history is contained locally, runs tests, rebuilds the universal package, pushes main and an annotated version tag, then creates a regular GitHub release with the ZIP and checksum. It never force-pushes or replaces an existing release. Publishing is not automatic during normal builds. Use `gh auth login` first if the CLI is not authenticated.
 
 The in-app updater reads GitHub's latest published stable release. Drafts and prereleases are not offered, and merely pushing a Git commit does not create an update. Users review the release page and install manually; the app never downloads or replaces its own executable. API behavior is documented in [GitHub's release API](https://docs.github.com/en/rest/releases/releases#get-the-latest-release).

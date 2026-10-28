@@ -1,6 +1,18 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+notarize=false
+case "${1:-}" in
+  "") ;;
+  --notarize) notarize=true ;;
+  *) echo "Usage: $0 [--notarize]" >&2; exit 1 ;;
+esac
+if $notarize; then
+  if [[ -z "${MEETING_BUSY_SIGNING_IDENTITY:-}" || "${MEETING_BUSY_SIGNING_IDENTITY:-}" == "-" || -z "${MEETING_BUSY_NOTARY_PROFILE:-}" ]]; then
+    echo "A notarized release needs MEETING_BUSY_SIGNING_IDENTITY and MEETING_BUSY_NOTARY_PROFILE." >&2
+    exit 1
+  fi
+fi
 command -v gh >/dev/null || { echo "Install the GitHub CLI (gh) before publishing." >&2; exit 1; }
 repository="chipset/Meeting-Busy"
 origin="$(git remote get-url origin)"
@@ -40,7 +52,9 @@ export CLANG_MODULE_CACHE_PATH="$PWD/.build/ModuleCache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$CLANG_MODULE_CACHE_PATH"
 swift test --disable-sandbox --cache-path "$PWD/.build/cache" --config-path "$PWD/.build/config" --security-path "$PWD/.build/security"
 node --test BrowserExtension/tests/*.test.cjs
-./scripts/package-release.sh
+if $notarize; then ./scripts/package-release.sh --notarize
+else ./scripts/package-release.sh
+fi
 python3 scripts/test-browser-host.py
 archive="dist/MeetingBusy-$version-universal.zip"
 checksum="$archive.sha256"

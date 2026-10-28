@@ -54,7 +54,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let notifications = NotificationController()
     private let hotKeys = HotKeyController()
     private let browserBridge = BrowserBridgeController()
-    private lazy var settingsController = SettingsController(store: appearance, features: features, diagnostics: diagnostics, updates: updates, notifications: notifications, bridge: browserBridge)
+    private let usbLight = UsbLightController()
+    private lazy var settingsController = SettingsController(store: appearance, features: features, diagnostics: diagnostics, updates: updates, notifications: notifications, bridge: browserBridge, light: usbLight)
     private lazy var keyboardMovement = KeyboardMovementController(store: appearance)
     private let reportController = ReportController()
     private var timer: Timer?
@@ -235,6 +236,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             lastLoggedEvidence = evidence
             diagnostics.record(DiagnosticEntry(event: .stateChanged, state: reason, mode: mode, evidence: evidence, trusted: trusted))
         }
+        usbLight.update(suspended ? .off : IndicatorLight.state(for: reason, extensionLost: browserBridge.lostConnection), enabled: features.usbLightEnabled)
         let presenting = reason == .presenting
         let visible = !suspended && reason.showsIndicator
         let accessibilityStatus = reason == .preview ? "Indicator preview" : (reason == .forcedBusy ? "Manual status" : "Meeting detected")
@@ -522,10 +524,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         diagnostics.record(DiagnosticEntry(event: .sleep))
         previewUntil = .distantPast
         panel.update(visible: false)
+        usbLight.update(.off, enabled: features.usbLightEnabled)
     }
     @objc private func didWake() { suspended = false; configureFeatures(); diagnostics.record(DiagnosticEntry(event: .wake)); poll() }
     @objc private func screenChanged() { updateUI() }
     func applicationWillTerminate(_ notification: Notification) {
+        usbLight.stop()
         browserBridge.configure(enabled: false, paused: features.pause.isPaused, services: features.enabledServices)
         hotKeys.unregister()
         notifications.schedulePresentation(startedAt: nil, minutes: features.reminderMinutes, enabled: false)

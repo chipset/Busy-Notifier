@@ -16,6 +16,9 @@ final class FeatureSettings: ObservableObject {
     @Published var browserIntegrationEnabled = UserDefaults.standard.bool(forKey: "browserIntegrationEnabled") {
         didSet { UserDefaults.standard.set(browserIntegrationEnabled, forKey: "browserIntegrationEnabled"); onChange?() }
     }
+    @Published var usbLightEnabled = UserDefaults.standard.bool(forKey: "usbLightEnabled") {
+        didSet { UserDefaults.standard.set(usbLightEnabled, forKey: "usbLightEnabled"); onChange?() }
+    }
     @Published var enabledServices = storedValue(Set<MeetingService>.self, key: "enabledServices", fallback: Set(MeetingService.allCases)) {
         didSet { saveValue(enabledServices, key: "enabledServices"); onChange?() }
     }

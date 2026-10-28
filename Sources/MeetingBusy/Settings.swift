@@ -67,7 +67,7 @@ final class SettingsController: NSObject, NSWindowDelegate {
     private let window: NSWindow
     private let store: AppearanceStore
 
-    init(store: AppearanceStore, features: FeatureSettings, diagnostics: DiagnosticsController, updates: UpdateChecker, notifications: NotificationController, bridge: BrowserBridgeController) {
+    init(store: AppearanceStore, features: FeatureSettings, diagnostics: DiagnosticsController, updates: UpdateChecker, notifications: NotificationController, bridge: BrowserBridgeController, light: UsbLightController) {
         self.store = store
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 650),
                           styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
@@ -75,7 +75,7 @@ final class SettingsController: NSObject, NSWindowDelegate {
         window.title = "Meeting Busy Settings"
         window.isReleasedWhenClosed = false
         window.delegate = self
-        window.contentView = NSHostingView(rootView: SettingsView(store: store, features: features, diagnostics: diagnostics, updates: updates, notifications: notifications, bridge: bridge))
+        window.contentView = NSHostingView(rootView: SettingsView(store: store, features: features, diagnostics: diagnostics, updates: updates, notifications: notifications, bridge: bridge, light: light))
         window.center()
     }
 
@@ -94,6 +94,7 @@ private struct SettingsView: View {
     let updates: UpdateChecker
     let notifications: NotificationController
     let bridge: BrowserBridgeController
+    let light: UsbLightController
     @State private var selectedPreset: UUID?
     @State private var presetName = ""
 
@@ -227,6 +228,7 @@ private struct SettingsView: View {
                     .font(.caption).foregroundStyle(.secondary)
                 FeatureSettingsView(features: features, diagnostics: diagnostics, updates: updates, notifications: notifications)
                 BrowserIntegrationSettings(features: features, bridge: bridge)
+                UsbLightSettings(features: features, light: light)
             }.padding(22)
         }.frame(width: 500, height: 650)
     }

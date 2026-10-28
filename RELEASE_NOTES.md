@@ -4,6 +4,7 @@
 - Detection: Teams and Meet no longer treat a mid-call "New meeting"/"Join a meeting" button as the call ending; Webex combined leave/end labels now work in browsers. A parity test keeps the Swift and JavaScript phrase lists identical.
 - The page scanner is throttled; Safari updates reach the indicator immediately; stale snapshot files are pruned; the Accessibility fallback scan slows down while the extension is reporting and nothing is active.
 - The menu reports when the browser extension stops reporting. A second launch now hands over to the running copy instead of fighting over the Safari bridge port.
+- Optional USB indicator light: Settings can drive an RP2040 board with a WS2812 strip over USB serial (red busy, yellow presenting, slow amber flash for setup problems). Firmware and wiring notes are in `Firmware/UsbLight`. The light turns itself off if the app stops.
 - Adds GitHub Actions CI for the Swift and JavaScript tests.
 
 # Meeting Busy 0.4.1

@@ -2,10 +2,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 command -v gh >/dev/null || { echo "Install the GitHub CLI (gh) before publishing." >&2; exit 1; }
-repository="chipset/Busy-Notifier"
+repository="chipset/Meeting-Busy"
 origin="$(git remote get-url origin)"
 case "$origin" in
-  https://github.com/chipset/Busy-Notifier.git|https://github.com/chipset/Busy-Notifier|git@github.com:chipset/Busy-Notifier.git) ;;
+  https://github.com/chipset/Meeting-Busy.git|https://github.com/chipset/Meeting-Busy|git@github.com:chipset/Meeting-Busy.git) ;;
   *) echo "Origin does not point to $repository; publishing stopped." >&2; exit 1 ;;
 esac
 if [[ "$(git branch --show-current)" != "main" || -n "$(git status --porcelain)" ]]; then

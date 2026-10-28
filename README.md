@@ -65,7 +65,7 @@ Accessibility reads happen concurrently across apps in background tasks with tim
 
 Diagnostic logging defaults to state changes. Settings can disable it or enable every-scan details, open the folder, export, or clear logs. Logs are structured local JSON Lines under `~/Library/Logs/MeetingBusy`, limited to a current file plus three backups at 512 KiB each. They contain event times, services, detection signals, permission state, error codes, and scan durations. No titles, participant names, chats, URLs, indicator text, or user paths are logged. Meeting activity times may still be sensitive; exports are only saved where the user chooses and are never uploaded automatically.
 
-Update checks read the latest stable release in `chipset/Busy-Notifier` on GitHub, at most daily when enabled, or when Check for updates is selected. The app validates versions and release URLs and opens the release page for manual download/installation. With no published GitHub release it reports that none is available. Source commits alone do not create app updates.
+Update checks read the latest stable release in `chipset/Meeting-Busy` on GitHub, at most daily when enabled, or when Check for updates is selected. The app validates versions and release URLs and opens the release page for manual download/installation. With no published GitHub release it reports that none is available. Source commits alone do not create app updates.
 
 ### Troubleshooting a missed meeting
 

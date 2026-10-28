@@ -185,7 +185,7 @@ The generated report excludes meeting titles/content, participant names, custom 
 
 Choose **Check for updates…** from the menu, or **Check now** in Settings. Optional daily checks and update notifications are off until you enable them. Notifications require a separate macOS permission; daily checks contact GitHub even if notification permission is off.
 
-Checks read the latest published stable release from `chipset/Busy-Notifier` on GitHub. No meeting information or diagnostic logs are sent. GitHub receives an ordinary API request and its usual connection metadata. The status distinguishes an available update, no published release, and a failed check. When available, use **View release** or the update menu item to open the GitHub page. Review the release's signing status, download its application ZIP, and install the new version yourself; the app does not download or replace itself.
+Checks read the latest published stable release from `chipset/Meeting-Busy` on GitHub. No meeting information or diagnostic logs are sent. GitHub receives an ordinary API request and its usual connection metadata. The status distinguishes an available update, no published release, and a failed check. When available, use **View release** or the update menu item to open the GitHub page. Review the release's signing status, download its application ZIP, and install the new version yourself; the app does not download or replace itself.
 
 ## Update or repair permissions
 

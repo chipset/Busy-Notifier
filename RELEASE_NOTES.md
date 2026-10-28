@@ -1,19 +1,15 @@
-# Meeting Busy 0.3.0
+# Meeting Busy 0.3.1
 
-This release adds setup checks, safer presentation recovery, per-display placement, and broader control-label coverage for macOS 13 and newer.
+This maintenance release moves the project's GitHub home to `chipset/Meeting-Busy` and updates the in-app release checker to use and trust the new repository URL. Meeting detection and indicator behavior are unchanged from 0.3.0.
 
-- Settings now shows Accessibility and browser connection status, enabled services, the current detection result, and a live-test workflow. You can check immediately, preview Busy, test Presenting, and return to Automatic.
-- Optional automatic return from manual Presenting requires an observed own-sharing control followed by three complete checks confirming the same call continues without sharing. Uncertain checks leave Presenting selected.
-- When showing on every display, each display can have its own position and visibility. Existing appearance settings and presets remain compatible.
-- Native and browser detection recognize a limited set of Spanish, French, and German leave and own-sharing controls in addition to English. Live-client verification remains necessary because providers can change labels.
-- Browser extension ZIPs can be produced with `./scripts/package-browser-extensions.sh` for local installation. Firefox requires unlisted Mozilla signing for an extension that survives restart; no public listing is planned.
+Version 0.3.0 may not announce this update automatically because its release-link validation expects the old repository path. Download 0.3.1 directly from this release page, then future update checks will use the new location.
 
 ## Installation and security
 
-Download `MeetingBusy-0.3.0-universal.zip`, extract it, and move `Meeting Busy.app` to Applications. Grant Accessibility permission for native clients and Safari. Optional browser detection requires a separate bridge and extension installation. The app asks for no microphone, camera, or screen-recording permission; it records no meeting content.
+Download `MeetingBusy-0.3.1-universal.zip`, extract it, and move `Meeting Busy.app` to Applications. Grant Accessibility permission for native clients and Safari. Optional browser detection requires separate bridge and extension installation. The browser extension ZIPs are included for direct distribution; the unsigned Firefox ZIP is temporary until Mozilla signs an unlisted XPI.
 
-This direct-download development archive is ad hoc signed and is not notarized. The release script can create a Developer ID signed and notarized archive when the publisher supplies a valid signing identity and Keychain notary profile. No Mac App Store submission is involved.
+This direct-download build is ad hoc signed and is not notarized. The release script supports Developer ID signing and notarization when a signing identity and notary profile are available. No Mac App Store submission is involved.
 
 ## Validation and limits
 
-Automated Swift and JavaScript tests and a universal package build pass. Live meeting-client, Firefox, VoiceOver, multi-display, and screen-sharing checks still need manual validation. Detection is best effort; choose Presenting before sharing when immediate hiding matters. New clients such as FaceTime and Slack huddles are not enabled without verified live control fixtures.
+Automated Swift and JavaScript tests, native-host protocol checks, and universal packaging are required before publication. Live meeting-client, Firefox, VoiceOver, multi-display, and screen-sharing checks remain manual. Detection is best effort; choose Presenting before sharing when immediate hiding matters.

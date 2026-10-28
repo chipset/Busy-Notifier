@@ -27,7 +27,7 @@ public struct PublishedRelease: Decodable, Sendable {
     public func updateURL(currentVersion: String) -> URL? {
         guard !draft, !prerelease, let incoming = ReleaseVersion(tagName), let current = ReleaseVersion(currentVersion), incoming > current,
               htmlURL.scheme == "https", htmlURL.host?.lowercased() == "github.com", htmlURL.user == nil, htmlURL.password == nil,
-              htmlURL.path.hasPrefix("/chipset/Busy-Notifier/releases/tag/") else { return nil }
+              htmlURL.path.hasPrefix("/chipset/Meeting-Busy/releases/tag/") else { return nil }
         return htmlURL
     }
 }

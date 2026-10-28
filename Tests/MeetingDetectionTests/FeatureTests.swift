@@ -70,11 +70,11 @@ final class FeatureTests: XCTestCase {
             let data = try JSONSerialization.data(withJSONObject: ["tag_name": tag, "html_url": url, "draft": false, "prerelease": prerelease])
             return try JSONDecoder().decode(PublishedRelease.self, from: data)
         }
-        let url = "https://github.com/chipset/Busy-Notifier/releases/tag/v1.7.0"
+        let url = "https://github.com/chipset/Meeting-Busy/releases/tag/v1.7.0"
         XCTAssertNotNil(try release("v1.7.0", url).updateURL(currentVersion: "1.6.0"))
         XCTAssertNil(try release("v1.6.0", url).updateURL(currentVersion: "1.6.0"))
         XCTAssertNil(try release("v1.7.0", url, prerelease: true).updateURL(currentVersion: "1.6.0"))
-        for unsafe in ["https://example.com/download", "http://github.com/chipset/Busy-Notifier/releases/tag/v2", "https://github.com/other/repo/releases/tag/v2", "https://github.com.evil.example/chipset/Busy-Notifier/releases/tag/v2"] {
+        for unsafe in ["https://example.com/download", "http://github.com/chipset/Meeting-Busy/releases/tag/v2", "https://github.com/other/repo/releases/tag/v2", "https://github.com.evil.example/chipset/Meeting-Busy/releases/tag/v2", "https://github.com/chipset/Busy-Notifier/releases/tag/v2"] {
             XCTAssertNil(try release("v2.0.0", unsafe).updateURL(currentVersion: "1.6.0"))
         }
     }

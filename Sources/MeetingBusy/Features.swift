@@ -127,7 +127,7 @@ final class UpdateChecker: ObservableObject {
             configuration.timeoutIntervalForRequest = 15
             let session = URLSession(configuration: configuration)
             defer { session.invalidateAndCancel() }
-            var request = URLRequest(url: URL(string: "https://api.github.com/repos/chipset/Busy-Notifier/releases/latest")!)
+            var request = URLRequest(url: URL(string: "https://api.github.com/repos/chipset/Meeting-Busy/releases/latest")!)
             request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             request.setValue("MeetingBusy", forHTTPHeaderField: "User-Agent")
             do {

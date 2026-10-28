@@ -120,6 +120,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             UserDefaults.standard.set(true, forKey: "didShowWelcome")
             showWelcome()
         }
+        if CommandLine.arguments.contains("--safari-setup") { settingsController.show() }
         poll()
     }
 

@@ -58,6 +58,7 @@ private final class SafariBridgeConnection: @unchecked Sendable {
     let onClose: @Sendable () -> Void
     var data = Data()
     var closed = false
+    var allowedOrigin: String?
     var deadline: DispatchWorkItem?
 
     init(connection: NWConnection, configuration: SafariBridgeConfiguration, store: BrowserBridgeStore,
@@ -86,7 +87,8 @@ private final class SafariBridgeConnection: @unchecked Sendable {
             guard boundary.lowerBound <= 8192,
                   let header = String(data: data[..<boundary.lowerBound], encoding: .utf8) else { respond(400); return }
             let lines = header.components(separatedBy: "\r\n")
-            guard lines.first == "POST /state HTTP/1.1" else { respond(400); return }
+            let isPreflight = lines.first == "OPTIONS /state HTTP/1.1"
+            guard isPreflight || lines.first == "POST /state HTTP/1.1" else { respond(400); return }
             var fields: [String: String] = [:]
             for line in lines.dropFirst() {
                 guard let colon = line.firstIndex(of: ":") else { respond(400); return }
@@ -94,8 +96,20 @@ private final class SafariBridgeConnection: @unchecked Sendable {
                 guard fields[key] == nil else { respond(400); return }
                 fields[key] = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
             }
-            guard fields["host"] == "127.0.0.1:\(configuration.port)", fields["origin"] == nil,
-                  fields["authorization"] == "Bearer \(configuration.token)" else { respond(403); return }
+            guard fields["host"] == "127.0.0.1:\(configuration.port)" else { respond(403); return }
+            if let origin = fields["origin"] {
+                guard let url = URL(string: origin), url.scheme == "safari-web-extension", let host = url.host,
+                      UUID(uuidString: host) != nil, url.user == nil, url.password == nil, url.port == nil,
+                      url.path.isEmpty, url.query == nil, url.fragment == nil else { respond(403); return }
+                allowedOrigin = origin
+            }
+            if isPreflight {
+                let headers = Set((fields["access-control-request-headers"] ?? "").lowercased().split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
+                guard allowedOrigin != nil, fields["access-control-request-method"] == "POST",
+                      headers.isSubset(of: ["authorization", "content-type"]) else { respond(403); return }
+                respond(204); return
+            }
+            guard fields["authorization"] == "Bearer \(configuration.token)" else { respond(403); return }
             guard fields["transfer-encoding"] == nil, let rawLength = fields["content-length"],
                   let length = Int(rawLength), length > 0, length <= NativeMessageIO.maximumBytes else { respond(400); return }
             let body = data[boundary.upperBound...]
@@ -120,6 +134,9 @@ private final class SafariBridgeConnection: @unchecked Sendable {
     func respond(_ code: Int, reply: BrowserBridgeReply? = nil) {
         let body = reply.flatMap { try? JSONEncoder().encode($0) } ?? Data()
         var response = Data("HTTP/1.1 \(code) \(code == 200 ? "OK" : "Error")\r\nContent-Type: application/json\r\nContent-Length: \(body.count)\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n".utf8)
+        if let origin = allowedOrigin {
+            response = Data("HTTP/1.1 \(code) \(code == 200 ? "OK" : "Response")\r\nContent-Type: application/json\r\nContent-Length: \(body.count)\r\nConnection: close\r\nCache-Control: no-store\r\nAccess-Control-Allow-Origin: \(origin)\r\nAccess-Control-Allow-Methods: POST\r\nAccess-Control-Allow-Headers: Authorization, Content-Type\r\nVary: Origin\r\n\r\n".utf8)
+        }
         response.append(body)
         connection.send(content: response, completion: .contentProcessed { [self] _ in close() })
     }

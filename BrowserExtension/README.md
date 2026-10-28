@@ -4,19 +4,24 @@ This optional extension supplies meeting and own-screen-sharing state from inact
 
 Spanish, French, and German call and sharing labels have limited best-effort coverage. Verify each client version with a live call.
 
-## Safari: local use without an Apple Developer fee
+## Safari: use the temporary extension when the bundled one is missing
 
-The Safari extension is embedded in the Safari-enabled **Meeting Busy.app**. A plain extension folder or ZIP cannot supply its native connection to the app.
+Safari can reject an ad hoc signed native bundle even with **Allow unsigned extensions** enabled. This occurred on Safari 27 with the 0.4.0 preview: PlugInKit registered the extension, but Safari logged a code-signing-dictionary failure and did not list it. Signature and native-handler tests alone do not establish Safari visibility.
 
-1. Move the packaged app to a permanent location, preferably Applications, quit older copies, and open it at least once.
-2. In Meeting Busy **Settings → Browser integration**, enable **Use browser extension meeting detection**, choose **Safari**, and click **Open Safari extension settings**.
-3. In Safari **Settings → Advanced**, enable **Show features for web developers**. In **Settings → Developer**, enable **Allow unsigned extensions**. Safari 16 uses **Develop → Allow Unsigned Extensions** instead.
-4. In Safari **Settings → Extensions**, enable **Meeting Busy** and allow access to the supported meeting sites. Enable it in the Safari profile where you attend calls.
-5. Open the extension popup and choose **Connect open meeting tabs**, or reload existing meeting tabs. The popup should say **Connected to Meeting Busy**. Join and leave a call and start and stop your own screen share to verify detection.
+The temporary version uses Safari's **Add Temporary Extension** feature and pairs directly with the local Mac app. It needs no paid account or native extension certificate.
 
-Safari resets **Allow unsigned extensions** whenever it quits. Repeat that approval after each Safari restart. This is Apple's supported local-development workflow and needs no paid developer membership. Meeting Busy cannot bypass that approval. [Apple's local unsigned-extension instructions](https://developer.apple.com/documentation/safariservices/running-your-safari-web-extension)
+1. Quit old copies, update to Meeting Busy 0.4.1 or later, and open the installed copy.
+2. In Meeting Busy **Settings → Browser integration**, choose **Safari**, turn integration on, and select **Open Safari extension folder**. This copies the `safari-temporary` folder into Application Support and opens it in Finder.
+3. In Safari **Settings → Advanced**, enable **Show features for web developers**. In **Settings → Developer**, choose **Add Temporary Extension…**, approve Safari's prompt, and select the opened folder. You may instead select `MeetingBusy-0.4.1-safari-temporary-extension.zip` from the release.
+4. Enable **Meeting Busy (Temporary)** under Safari Extensions and allow its supported meeting sites and `127.0.0.1` local-bridge access. Enable it in the Safari profile where you attend calls.
+5. In the Mac app, choose **Copy Safari pairing code**. Open the temporary extension popup in Safari, paste that code into its pairing field, and choose **Pair with the Mac app**. Then choose **Connect open meeting tabs**, or reload meeting tabs. The popup should say **Connected to Meeting Busy**.
+6. Join and leave a call, switch tabs, and start and stop your own screen share to verify live detection.
 
-The macOS-only Safari variant uses a persistent Manifest V2 background page so its five-second heartbeat does not depend on inactive tab timers. The sandboxed native handler forwards only the validated state envelope to an IPv4 loopback listener in the running app. A random per-build token stays inside the native bundles; it is never sent to meeting webpages. The listener is disabled when browser integration is off, rejects web origins and unauthenticated requests, and does not contact an external service. Pauses, service switches, and stale-evidence expiry apply as with other browsers. Quit duplicate app copies if the Safari bridge reports a port conflict.
+Safari removes temporary extensions after 24 hours or when it quits. Add the folder or ZIP again and pair when needed. Pair again after updating the Mac app because its pairing code changes with each build. If Safari has no Add Temporary Extension option, this route is unavailable there; use Accessibility fallback or a locally development-signed embedded extension. [Apple's temporary-extension instructions](https://developer.apple.com/documentation/safariservices/running-your-safari-web-extension)
+
+The temporary extension stores its pairing token in extension-local storage, never in meeting-page scripts. It sends only provider, ephemeral frame IDs, and call/sharing state to an authenticated IPv4 loopback listener. Requests from ordinary website origins are rejected even with a valid token; only native requests and Safari extension origins can use the bridge. Integration off stops the listener, and pauses, service switches, and stale-evidence expiry apply normally. No external service is contacted. Its persistent macOS background page supplies the five-second heartbeat independently of inactive-tab timers. Quit duplicate app copies if the bridge reports a port conflict.
+
+The original embedded native extension is still built for development testing, but ad hoc Safari discovery is not assumed to work. A free Apple Development identity may be used for local development signing; a paid Developer ID identity is not required for the temporary route.
 
 ## Direct browser distribution
 

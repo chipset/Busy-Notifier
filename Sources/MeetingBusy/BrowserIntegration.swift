@@ -1,6 +1,5 @@
 import AppKit
 import SwiftUI
-import SafariServices
 import MeetingDetection
 
 enum BridgeBrowser: String, CaseIterable {
@@ -15,7 +14,7 @@ enum BridgeBrowser: String, CaseIterable {
         case .firefox: "Mozilla/NativeMessagingHosts"
         }
     }
-    var extensionFolder: String { self == .safari ? "safari" : (self == .firefox ? "firefox" : "chromium") }
+    var extensionFolder: String { self == .safari ? "safari-temporary" : (self == .firefox ? "firefox" : "chromium") }
 }
 
 private struct ExtensionIdentity: Decodable { var chromiumID: String; var firefoxID: String }
@@ -70,7 +69,7 @@ final class BrowserBridgeController: ObservableObject {
     private var hostManifest: URL { applicationSupport.appendingPathComponent(browser.relativeHostsDirectory, isDirectory: true).appendingPathComponent("local.meetingbusy.browser.json") }
 
     func install() {
-        if browser == .safari { openSafariSettings(); return }
+        if browser == .safari { installSafariTemporary(); return }
         guard let executable = Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("MeetingBusyBrowserHost"),
               FileManager.default.isExecutableFile(atPath: executable.path),
               let resources = Bundle.main.resourceURL?.appendingPathComponent("BrowserExtension"),
@@ -99,27 +98,44 @@ final class BrowserBridgeController: ObservableObject {
     }
 
     func remove() {
-        if browser == .safari { setupStatus = "Disable Meeting Busy in Safari Settings → Extensions."; openSafariSettings(); return }
+        if browser == .safari { setupStatus = "Remove Meeting Busy (Temporary) in Safari Settings → Extensions."; return }
         do {
             if FileManager.default.fileExists(atPath: hostManifest.path) { try FileManager.default.removeItem(at: hostManifest) }
             setupStatus = "Removed the \(browser.rawValue) bridge entry. Remove the extension in the browser separately if desired."
         } catch { setupStatus = "The selected browser bridge could not be removed." }
     }
 
-    private func openSafariSettings() {
-        guard let plugins = Bundle.main.builtInPlugInsURL,
-              FileManager.default.fileExists(atPath: plugins.appendingPathComponent("MeetingBusySafari.appex").path) else {
-            setupStatus = "Use the Safari-enabled Meeting Busy.app build."; return
+    private func installSafariTemporary() {
+        guard let source = Bundle.main.resourceURL?.appendingPathComponent("BrowserExtension/safari-temporary"),
+              FileManager.default.fileExists(atPath: source.appendingPathComponent("manifest.json").path) else {
+            setupStatus = "Use the updated Meeting Busy.app with Safari temporary-extension support."; return
         }
-        setupStatus = "Safari Settings → Developer: allow unsigned extensions. Then enable Meeting Busy under Extensions and allow its supported meeting sites. Repeat unsigned-extension approval after restarting Safari."
-        SFSafariApplication.showPreferencesForExtension(withIdentifier: "local.meetingbusy.safari") { [weak self] error in
-            guard error != nil else { return }
-            Task { @MainActor in self?.setupStatus = "Open Safari Settings → Developer, allow unsigned extensions, then enable Meeting Busy under Extensions. Launch the packaged app from its permanent location first." }
+        do {
+            let manager = FileManager.default
+            try manager.createDirectory(at: installedExtension, withIntermediateDirectories: true)
+            for file in try manager.contentsOfDirectory(at: source, includingPropertiesForKeys: nil) {
+                let destination = installedExtension.appendingPathComponent(file.lastPathComponent)
+                if manager.fileExists(atPath: destination.path) { try manager.removeItem(at: destination) }
+                try manager.copyItem(at: file, to: destination)
+            }
+            setupStatus = "In Safari Settings → Developer, choose Add Temporary Extension and select this folder. Then copy a pairing code below and paste it into the extension popup. Safari removes temporary extensions on quit or after 24 hours."
+            NSWorkspace.shared.open(installedExtension)
+        } catch { setupStatus = "Could not prepare the Safari extension folder. Try opening the packaged app from Applications." }
+    }
+
+    func copySafariPairingCode() {
+        guard let url = Bundle.main.resourceURL?.appendingPathComponent("SafariBridge.json"),
+              let data = try? Data(contentsOf: url),
+              let settings = try? JSONDecoder().decode(SafariBridgeConfiguration.self, from: data) else {
+            setupStatus = "This build has no Safari pairing configuration."; return
         }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString("\(settings.port):\(settings.token)", forType: .string)
+        setupStatus = "Pairing code copied. Paste it only into the Meeting Busy (Temporary) extension popup and choose Pair with the Mac app. Keep browser integration on."
     }
 
     func openExtensionFolder() {
-        if browser == .safari { openSafariSettings(); return }
+        if browser == .safari { installSafariTemporary(); return }
         guard FileManager.default.fileExists(atPath: installedExtension.path) else { setupStatus = "Install the selected browser's bridge first."; return }
         NSWorkspace.shared.open(installedExtension)
     }
@@ -139,17 +155,22 @@ struct BrowserIntegrationSettings: View {
                 ForEach(BridgeBrowser.allCases, id: \.self) { Text($0.rawValue).tag($0) }
             }
             if bridge.browser == .safari {
-                Button("Open Safari extension settings") { bridge.install() }
+                HStack {
+                    Button("Open Safari extension folder") { bridge.install() }
+                    Button("Copy Safari pairing code") { features.browserIntegrationEnabled = true; bridge.copySafariPairingCode() }
+                }
+                Text("Safari Settings → Developer → Add Temporary Extension: select the opened folder, allow supported sites, then pair in the extension popup. No certificate is required. Safari removes this extension on quit or after 24 hours.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Text(bridge.safariStatus).font(.caption).foregroundStyle(.secondary)
             } else { HStack {
                 Button("Install/update bridge") { bridge.install() }
                 Button("Open extension folder") { bridge.openExtensionFolder() }
             }
             }
-            Button(bridge.browser == .safari ? "Turn browser integration off and open Safari settings" : "Remove selected bridge and turn integration off") { features.browserIntegrationEnabled = false; bridge.remove() }
+            Button(bridge.browser == .safari ? "Turn browser integration off" : "Remove selected bridge and turn integration off") { features.browserIntegrationEnabled = false; bridge.remove() }
             Text(bridge.setupStatus).font(.caption).foregroundStyle(.secondary)
             Text(bridge.status).font(.caption).foregroundStyle(.secondary)
-            Text("Chrome/Edge/Brave/Chromium: load the folder as an unpacked extension. Firefox: temporary add-on loading requires reloading after a browser restart. Safari: enable the embedded extension and Allow unsigned extensions after each Safari restart. Accessibility remains a fallback.")
+            Text("Chrome/Edge/Brave/Chromium: load the folder as an unpacked extension. Firefox: temporary add-on loading requires reloading after a browser restart. Safari: load the temporary extension in Developer settings and pair with the Mac app. Accessibility remains a fallback.")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

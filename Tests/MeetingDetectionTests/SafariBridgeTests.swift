@@ -21,18 +21,37 @@ final class SafariBridgeTests: XCTestCase, @unchecked Sendable {
         let body = try JSONEncoder().encode(SafariBridgeEnvelope(session: session, message: .init(states: states)))
         let client = URLSession(configuration: .ephemeral)
         defer { client.invalidateAndCancel() }
-        func send(_ data: Data, authentication: String, origin: String? = nil) async throws -> (Data, Int) {
+        func send(_ data: Data, authentication: String, origin: String? = nil) async throws -> (Data, Int, String?) {
             var request = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/state")!)
             request.httpMethod = "POST"; request.httpBody = data; request.timeoutInterval = 3
             request.setValue("Bearer \(authentication)", forHTTPHeaderField: "Authorization")
             if let origin { request.setValue(origin, forHTTPHeaderField: "Origin") }
             let (data, response) = try await client.data(for: request)
-            return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
+            return (data, (response as? HTTPURLResponse)?.statusCode ?? 0, (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Access-Control-Allow-Origin"))
         }
         let forbidden = try await send(body, authentication: "wrong")
         XCTAssertEqual(forbidden.1, 403); XCTAssertTrue(store.freshSnapshots().isEmpty)
         let webOrigin = try await send(body, authentication: token, origin: "https://meet.google.com")
         XCTAssertEqual(webOrigin.1, 403)
+        let safariOrigin = "safari-web-extension://\(UUID().uuidString)"
+        var preflight = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/state")!)
+        preflight.httpMethod = "OPTIONS"
+        preflight.setValue(safariOrigin, forHTTPHeaderField: "Origin")
+        preflight.setValue("POST", forHTTPHeaderField: "Access-Control-Request-Method")
+        preflight.setValue("authorization, content-type", forHTTPHeaderField: "Access-Control-Request-Headers")
+        let (_, preflightResponse) = try await client.data(for: preflight)
+        XCTAssertEqual((preflightResponse as? HTTPURLResponse)?.statusCode, 204)
+        XCTAssertEqual((preflightResponse as? HTTPURLResponse)?.value(forHTTPHeaderField: "Access-Control-Allow-Origin"), safariOrigin)
+        XCTAssertTrue(store.freshSnapshots().isEmpty)
+        preflight.setValue("https://meet.google.com", forHTTPHeaderField: "Origin")
+        let (_, deniedPreflight) = try await client.data(for: preflight)
+        XCTAssertEqual((deniedPreflight as? HTTPURLResponse)?.statusCode, 403)
+        let unpaired = try await send(body, authentication: "wrong", origin: safariOrigin)
+        XCTAssertEqual(unpaired.1, 403)
+        let invalidOrigin = try await send(body, authentication: token, origin: "safari-web-extension://not-an-extension")
+        XCTAssertEqual(invalidOrigin.1, 403)
+        let paired = try await send(body, authentication: token, origin: safariOrigin)
+        XCTAssertEqual(paired.1, 200); XCTAssertEqual(paired.2, safariOrigin)
         let malformed = try await send(Data("{}".utf8), authentication: token)
         XCTAssertEqual(malformed.1, 400)
         let accepted = try await send(body, authentication: token)

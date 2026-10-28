@@ -39,6 +39,18 @@ final class DetectionTests: XCTestCase {
         XCTAssertTrue(IndicatorPolicy.visible(mode: .automatic, evidence: [evidence], trusted: true))
     }
 
+    func testLocalizedCallAndOwnSharingControls() {
+        for (leave, stop) in [("Salir de la llamada", "Dejar de compartir"),
+                              ("Quitter l'appel", "Arrêter le partage"),
+                              ("Besprechung verlassen", "Freigabe beenden")] {
+            let call = Detection.evaluate(service: .meet, controls: [Control(leave)])
+            XCTAssertEqual(call?.isPresenting, false)
+            let sharing = Detection.evaluate(service: .meet, controls: [Control(leave), Control(stop)])
+            XCTAssertEqual(sharing?.isPresenting, true)
+        }
+        XCTAssertNil(Detection.evaluate(service: .meet, controls: [Control("Salir de la llamada", actionable: false)]))
+    }
+
     func testWebOriginsAreVerified() {
         XCTAssertEqual(Detection.webService(url: "https://meet.google.com/abc-defg-hij"), .meet)
         XCTAssertEqual(Detection.webService(url: "https://teams.microsoft.com/v2/"), .teams)

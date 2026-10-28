@@ -36,6 +36,19 @@ public enum DetectionSignal: String, Codable, Sendable {
 }
 
 public enum Detection {
+    // Exact actionable control labels seen in supported clients. Keep these
+    // narrow: arbitrary text must never become meeting evidence.
+    private static let localizedLeave = [
+        "salir de la llamada", "salir de la reunión", "abandonar la reunión",
+        "quitter l’appel", "quitter l'appel", "quitter la réunion",
+        "anruf verlassen", "besprechung verlassen", "meeting verlassen"
+    ]
+    private static let localizedStopSharing = [
+        "dejar de compartir", "detener la presentación", "dejar de presentar",
+        "arrêter le partage", "arrêter de partager", "arrêter la présentation",
+        "freigabe beenden", "bildschirmfreigabe beenden", "präsentation beenden"
+    ]
+
     public static func nativeService(bundleID: String) -> MeetingService? {
         switch bundleID.lowercased() {
         case "com.microsoft.teams", "com.microsoft.teams2": .teams
@@ -69,7 +82,7 @@ public enum Detection {
         case .webex: endControls = ["leave meeting", "end meeting", "leave call", "end call", "leave / end meeting", "leave or end meeting", "end or leave meeting"]
         case .zoom: endControls = ["leave meeting", "end meeting", "end meeting for all", "leave webinar", "end webinar"]
         }
-        let presenting = labels.contains { matches($0, phrases: ["stop sharing", "stop presenting", "stop share", "stop screen sharing"]) }
+        let presenting = labels.contains { matches($0, phrases: ["stop sharing", "stop presenting", "stop share", "stop screen sharing"] + localizedStopSharing) }
         // Teams also labels its call button simply “Leave”; require a companion
         // call control to avoid treating a team/channel's Leave menu as a call.
         let teamsCall = service == .teams && labels.contains(where: { matches($0, phrases: ["leave"]) })
@@ -91,8 +104,8 @@ public enum Detection {
             && (zoomToolbarCount > 0 || labels.contains(where: { matches($0, phrases: ["mute", "unmute", "start video", "stop video", "join audio"]) }))
             && menuLabels.contains(where: { matches($0, phrases: endControls) })
         let endedZoom = service == .zoom && labels.contains(where: { matches($0, phrases: ["rejoin", "return to home", "back to home", "join a meeting", "new meeting"]) })
-        guard !endedZoom, presenting || teamsCall || zoomCall || zoomToolbar || zoomMenu || labels.contains(where: { matches($0, phrases: endControls) }) else { return nil }
-        let sharingMenu = zoomMenu && menuLabels.contains(where: { matches($0, phrases: ["stop sharing", "stop share", "stop presenting"]) })
+        guard !endedZoom, presenting || teamsCall || zoomCall || zoomToolbar || zoomMenu || labels.contains(where: { matches($0, phrases: endControls + localizedLeave) }) else { return nil }
+        let sharingMenu = zoomMenu && menuLabels.contains(where: { matches($0, phrases: ["stop sharing", "stop share", "stop presenting"] + localizedStopSharing) })
         let signal: DetectionSignal = presenting || sharingMenu ? .sharingControl : (zoomToolbar ? .zoomToolbar : (zoomMenu ? .zoomMenu : .callControls))
         return MeetingEvidence(service: service, isPresenting: presenting || sharingMenu, signal: signal)
     }

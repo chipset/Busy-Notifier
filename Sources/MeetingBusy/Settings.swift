@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import ApplicationServices
 import MeetingDetection
 
 @MainActor
@@ -56,7 +57,7 @@ final class AppearanceStore: ObservableObject {
 
     func nudge(dx: CGFloat, dy: CGFloat) {
         guard let screen = NSScreen.screens.first(where: { $0.displayID == appearance.displayID }) ?? NSScreen.screens.first else { return }
-        let origin = appearance.frame(in: screen.visibleFrame).origin
+        let origin = appearance.frame(in: screen.visibleFrame, displayID: screen.displayID).origin
         appearance = appearance.repositioned(to: CGPoint(x: origin.x + dx, y: origin.y + dy), in: screen.visibleFrame, displayID: screen.displayID)
     }
 }
@@ -99,6 +100,27 @@ private struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                Text("Setup and live test").font(.title2.bold())
+                Text("1. Accessibility: \(AXIsProcessTrusted() ? "granted" : "needed for native clients and Safari")")
+                if !AXIsProcessTrusted() { Button("Grant Accessibility access…") { features.onGrantAccess?() } }
+                Text("2. Browser extension (optional): \(bridge.status)")
+                Text("Install its bridge and extension in Browser integration below to detect inactive tabs.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text("3. Live test")
+                Text("Enabled services: \(features.enabledServices.map(\.rawValue).sorted().joined(separator: ", "))")
+                Text("Current result: \(store.detectionStatus)")
+                Text(store.lastCheckDescription).font(.caption).foregroundStyle(.secondary)
+                HStack {
+                    Button("Check now") { features.onCheckDetection?() }
+                    Button("Preview Busy for 5 seconds") { features.onPreview?() }
+                }
+                HStack {
+                    Button("Test Presenting") { features.onSetMode?(.presenting) }
+                    Button("Return to Automatic") { features.onSetMode?(.automatic) }
+                }
+                Text("For a live test, join a call, select Check now, and confirm the result changes to In a meeting. Start sharing to confirm the indicator hides; stop sharing to confirm it returns.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Divider()
                 Text("Busy indicator").font(.title2.bold())
                 Text("Changes save automatically and apply immediately.").foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 8) {
@@ -173,6 +195,21 @@ private struct SettingsView: View {
                     Text("Vertical: \(Int(store.appearance.y * 100))% from top")
                     Slider(value: $store.appearance.y, in: 0...1, step: 0.01).accessibilityLabel("Vertical position")
                     Button("Move indicator using the keyboard…") { store.onKeyboardMove?() }
+                    if store.appearance.allDisplays {
+                        DisclosureGroup("Per-display positions and visibility") {
+                            ForEach(NSScreen.screens, id: \.displayID) { screen in
+                                let placement = placementBinding(for: screen.displayID)
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(screen.localizedName).font(.subheadline.bold())
+                                    Toggle("Show indicator", isOn: placement.visible)
+                                    Text("Horizontal: \(Int(placement.wrappedValue.x * 100))%")
+                                    Slider(value: placement.x, in: 0...1, step: 0.01)
+                                    Text("Vertical: \(Int(placement.wrappedValue.y * 100))%")
+                                    Slider(value: placement.y, in: 0...1, step: 0.01)
+                                }.padding(.vertical, 4)
+                            }
+                        }
+                    }
                 }
                 Toggle("Show indicator preview", isOn: $store.showPreview)
                 Text("Preview is manual and stays visible until unchecked or Settings is closed. It stays hidden while Presenting or Available is selected.")
@@ -201,6 +238,14 @@ private struct SettingsView: View {
             value.y = y
             store.appearance = value
         }
+    }
+
+    private func placementBinding(for id: UInt32) -> Binding<DisplayPlacement> {
+        Binding(get: { store.appearance.placement(for: id) }, set: { placement in
+            var value = store.appearance
+            value.displayPlacements[id] = placement
+            store.appearance = value
+        })
     }
 }
 

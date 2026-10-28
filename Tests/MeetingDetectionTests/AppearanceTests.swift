@@ -95,4 +95,23 @@ final class AppearanceTests: XCTestCase {
         XCTAssertEqual(moved.y, 0)
         XCTAssertTrue(display.contains(moved.frame(in: display)))
     }
+
+    func testPerDisplayPlacementAndVisibilityPersist() throws {
+        let screen = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let appearance = IndicatorAppearance(allDisplays: true, displayPlacements: [
+            7: DisplayPlacement(x: 1, y: 1), 8: DisplayPlacement(x: 0.3, y: 0.4, visible: false)
+        ])
+        XCTAssertEqual(appearance.frame(in: screen, displayID: 7).maxX, screen.maxX - 12)
+        XCTAssertFalse(appearance.isVisible(on: 8))
+        XCTAssertTrue(appearance.isVisible(on: 9))
+        XCTAssertEqual(try JSONDecoder().decode(IndicatorAppearance.self, from: JSONEncoder().encode(appearance)), appearance)
+    }
+
+    func testDraggingOneDisplayDoesNotMoveAnother() {
+        let screen = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let original = IndicatorAppearance(allDisplays: true)
+        let moved = original.repositioned(to: CGPoint(x: 800, y: 200), in: screen, displayID: 7)
+        XCTAssertNotEqual(moved.frame(in: screen, displayID: 7).origin, original.frame(in: screen, displayID: 7).origin)
+        XCTAssertEqual(moved.frame(in: screen, displayID: 8), original.frame(in: screen, displayID: 8))
+    }
 }

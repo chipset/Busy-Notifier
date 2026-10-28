@@ -1,5 +1,7 @@
 # Building and releasing Meeting Busy
 
+Meeting Busy is distributed as a direct-download ZIP outside the Mac App Store. Developer ID signing and notarization are for that direct-download route; this workflow does not submit the app to the Mac App Store.
+
 ## Development release
 
 Requires Xcode/Swift 6 or newer. Build a universal application and ZIP archive:
@@ -8,7 +10,7 @@ Requires Xcode/Swift 6 or newer. Build a universal application and ZIP archive:
 ./scripts/package-release.sh
 ```
 
-This produces `dist/Meeting Busy.app`, `dist/MeetingBusy-0.2.1-universal.zip`, and a `.sha256` checksum file alongside the archive. The default build contains both `arm64` and `x86_64` code and targets macOS 13 or newer. It is ad hoc signed and **not notarized**. Users may need the per-app macOS opening exception described in [USER_GUIDE.md](USER_GUIDE.md).
+This produces `dist/Meeting Busy.app`, `dist/MeetingBusy-0.3.0-universal.zip`, and a `.sha256` checksum file alongside the archive. The default build contains both `arm64` and `x86_64` code and targets macOS 13 or newer. It is ad hoc signed and **not notarized**. Users may need the per-app macOS opening exception described in [USER_GUIDE.md](USER_GUIDE.md).
 
 For a faster build for the current Mac only:
 
@@ -44,14 +46,14 @@ node --test BrowserExtension/tests/*.test.cjs
 codesign --verify --deep --strict "dist/Meeting Busy.app"
 lipo -archs "dist/Meeting Busy.app/Contents/MacOS/MeetingBusy"
 cd dist
-shasum -a 256 -c MeetingBusy-0.2.1-universal.zip.sha256
+shasum -a 256 -c MeetingBusy-0.3.0-universal.zip.sha256
 ```
 
 Complete the [manual acceptance checks](MANUAL_TESTS.md) on actual conferencing clients. Cross-compilation verifies the Intel slice builds, but does not substitute for running it on an Intel Mac. Notification delivery, global hotkeys, and screen-sharing behavior also need interactive testing.
 
 ## Publish to GitHub
 
-Change `CFBundleShortVersionString` and increment `CFBundleVersion` in `Resources/Info.plist` for a release, then rebuild and validate. Commit the source and documentation, push them, and create a GitHub release in `chipset/Busy-Notifier` using the tag `v0.2.1` for this version. Attach the ZIP and its checksum, and state clearly whether it is ad hoc signed or Developer ID signed and notarized. Build outputs stay excluded from Git.
+Change `CFBundleShortVersionString` and increment `CFBundleVersion` in `Resources/Info.plist` for a release, then rebuild and validate. Commit the source and documentation, push them, and create a GitHub release in `chipset/Busy-Notifier` using the tag `v0.3.0` for this version. Attach the ZIP and its checksum, and state clearly whether it is ad hoc signed or Developer ID signed and notarized. Build outputs stay excluded from Git.
 
 After committing the current source and `RELEASE_NOTES.md`, the publishing helper can perform these steps from a terminal with GitHub access:
 
@@ -65,4 +67,6 @@ The in-app updater reads GitHub's latest published stable release. Drafts and pr
 
 No publishing or notarization is performed by simply running the application. The release script only uploads an archive to Apple when explicitly invoked with `--notarize`; publishing the resulting files to GitHub is a separate action.
 
-The universal app also contains a universal native messaging host and both browser extension variants. Browser extensions remain unpacked/temporary developer installs; app notarization does not publish or sign them for browser stores. Keep `BrowserExtension/identity.json` and the Chromium manifest key stable so existing native-host allowlists continue to match. Browser background tests require Node.js; optional end-to-end browser tests are documented in `BrowserExtension/tests/README.md`.
+The universal app also contains a universal native messaging host and both browser extension variants. Browser extensions remain local unpacked/temporary installs unless separately signed; app notarization does not sign them. Keep `BrowserExtension/identity.json` and the Chromium manifest key stable so existing native-host allowlists continue to match. Browser background tests require Node.js; optional end-to-end browser tests are documented in `BrowserExtension/tests/README.md`.
+
+Run `./scripts/package-browser-extensions.sh` to create local browser extension ZIPs. Chromium can be loaded unpacked in Developer mode. For a Firefox extension that persists across restarts, request **unlisted** Mozilla signing and distribute the signed XPI yourself; no public browser store listing is needed. Check installed extension IDs against the app's native-host allowlists. The app and extension version numbers must match before packaging.

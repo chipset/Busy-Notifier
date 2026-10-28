@@ -41,3 +41,35 @@ public struct EvidenceTracker: Sendable {
 
     public mutating func clear() { evidence = []; lastCompletedAt = nil }
 }
+
+/// Returns to Automatic only after sharing was observed and a live call repeatedly
+/// confirms that the same service is no longer sharing.
+public struct PresentationReturnTracker: Sendable {
+    private var armedServices = Set<MeetingService>()
+    private var stoppedChecks = 0
+
+    public init() {}
+
+    public mutating func reset() {
+        armedServices = []
+        stoppedChecks = 0
+    }
+
+    public mutating func observe(mode: DisplayMode, evidence: [MeetingEvidence], complete: Bool) -> Bool {
+        guard mode == .presenting else { reset(); return false }
+        guard complete else { return false }
+        let sharing = Set(evidence.filter(\.isPresenting).map(\.service))
+        if !sharing.isEmpty {
+            armedServices.formUnion(sharing)
+            stoppedChecks = 0
+            return false
+        }
+        guard !armedServices.isEmpty else { return false }
+        if evidence.contains(where: { armedServices.contains($0.service) }) {
+            stoppedChecks += 1
+            return stoppedChecks >= 3
+        }
+        stoppedChecks = 0
+        return false
+    }
+}

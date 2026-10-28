@@ -48,7 +48,7 @@ private final class KeyboardMovementView: NSView {
         super.init(frame: frameRect)
         let heading = NSTextField(labelWithString: "Use arrow keys to move the indicator")
         heading.font = .systemFont(ofSize: 16, weight: .semibold)
-        let help = NSTextField(wrappingLabelWithString: "Arrow keys: 10 points · Shift + arrow: 50 points\nOption + arrow: 1 point · Return or Escape: finish\n\nPosition saves after every move. Choose another display in Settings. On every display, movement uses the same relative position. Presenting always keeps the indicator hidden.")
+        let help = NSTextField(wrappingLabelWithString: "Arrow keys: 10 points · Shift + arrow: 50 points\nOption + arrow: 1 point · Return or Escape: finish\n\nPosition saves after every move. Choose another display in Settings. When showing on every display, each display keeps its own position. Presenting always keeps the indicator hidden.")
         let buttons = NSStackView()
         buttons.orientation = .horizontal
         buttons.spacing = 10

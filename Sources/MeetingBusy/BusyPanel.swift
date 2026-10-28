@@ -10,7 +10,7 @@ final class BusyPanel {
     func update(visible: Bool, appearance: IndicatorAppearance = IndicatorAppearance(), accessibilityStatus: String = "Status indicator") {
         guard visible else { for indicator in indicators.values { indicator.hide() }; return }
         let screens: [NSScreen]
-        if appearance.allDisplays { screens = NSScreen.screens }
+        if appearance.allDisplays { screens = NSScreen.screens.filter { appearance.isVisible(on: $0.displayID) } }
         else { screens = (NSScreen.screens.first(where: { $0.displayID == appearance.displayID }) ?? NSScreen.screens.first).map { [$0] } ?? [] }
         let activeIDs = Set(screens.map(\.displayID))
         for id in Array(indicators.keys) where !activeIDs.contains(id) {
@@ -64,7 +64,7 @@ private final class IndicatorWindow {
     func update(appearance: IndicatorAppearance, screen: NSScreen, accessibilityStatus: String) {
         let settings = appearance.normalized
         // Meeting polls may update the appearance while dragging; do not snap back to the saved position.
-        if !isDragging { panel.setFrame(settings.frame(in: screen.visibleFrame), display: true) }
+        if !isDragging { panel.setFrame(settings.frame(in: screen.visibleFrame, displayID: screen.displayID), display: true) }
         panel.alphaValue = 1 - settings.transparency
         (panel.contentView as? BusyView)?.text = settings.text
         (panel.contentView as? BusyView)?.color = settings.color

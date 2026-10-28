@@ -1,6 +1,18 @@
 import Foundation
 import CoreGraphics
 
+public struct DisplayPlacement: Codable, Equatable, Sendable {
+    public var x: Double
+    public var y: Double
+    public var visible: Bool
+
+    public init(x: Double, y: Double, visible: Bool = true) {
+        self.x = x
+        self.y = y
+        self.visible = visible
+    }
+}
+
 public struct IndicatorAppearance: Codable, Equatable, Sendable {
     public var scale: Double
     public var transparency: Double
@@ -11,8 +23,9 @@ public struct IndicatorAppearance: Codable, Equatable, Sendable {
     public var text: String
     public var color: IndicatorColor
     public var allDisplays: Bool
+    public var displayPlacements: [UInt32: DisplayPlacement]
 
-    public init(scale: Double = 1, transparency: Double = 0, x: Double = 0, y: Double = 0, displayID: UInt32? = nil, text: String = "Busy", color: IndicatorColor = .busyRed, allDisplays: Bool = false) {
+    public init(scale: Double = 1, transparency: Double = 0, x: Double = 0, y: Double = 0, displayID: UInt32? = nil, text: String = "Busy", color: IndicatorColor = .busyRed, allDisplays: Bool = false, displayPlacements: [UInt32: DisplayPlacement] = [:]) {
         self.scale = scale
         self.transparency = transparency
         self.x = x
@@ -21,9 +34,10 @@ public struct IndicatorAppearance: Codable, Equatable, Sendable {
         self.text = text
         self.color = color
         self.allDisplays = allDisplays
+        self.displayPlacements = displayPlacements
     }
 
-    private enum CodingKeys: String, CodingKey { case scale, transparency, x, y, displayID, text, color, allDisplays }
+    private enum CodingKeys: String, CodingKey { case scale, transparency, x, y, displayID, text, color, allDisplays, displayPlacements }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -34,7 +48,8 @@ public struct IndicatorAppearance: Codable, Equatable, Sendable {
                   displayID: try values.decodeIfPresent(UInt32.self, forKey: .displayID),
                   text: try values.decodeIfPresent(String.self, forKey: .text) ?? "Busy",
                   color: try values.decodeIfPresent(IndicatorColor.self, forKey: .color) ?? .busyRed,
-                  allDisplays: try values.decodeIfPresent(Bool.self, forKey: .allDisplays) ?? false)
+                  allDisplays: try values.decodeIfPresent(Bool.self, forKey: .allDisplays) ?? false,
+                  displayPlacements: try values.decodeIfPresent([UInt32: DisplayPlacement].self, forKey: .displayPlacements) ?? [:])
     }
 
     public var normalized: Self {
@@ -42,29 +57,49 @@ public struct IndicatorAppearance: Codable, Equatable, Sendable {
              transparency: clamp(transparency, 0...0.9, fallback: 0),
              x: clamp(x, 0...1, fallback: 0), y: clamp(y, 0...1, fallback: 0), displayID: displayID,
              text: text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Busy" : text.trimmingCharacters(in: .whitespacesAndNewlines),
-             color: color.normalized, allDisplays: allDisplays)
+             color: color.normalized, allDisplays: allDisplays,
+             displayPlacements: displayPlacements.mapValues { placement in
+                 DisplayPlacement(x: clamp(placement.x, 0...1, fallback: clamp(x, 0...1, fallback: 0)),
+                                  y: clamp(placement.y, 0...1, fallback: clamp(y, 0...1, fallback: 0)), visible: placement.visible)
+             })
     }
 
-    public func frame(in screen: CGRect) -> CGRect {
+    public func placement(for displayID: UInt32) -> DisplayPlacement {
         let value = normalized
+        return value.displayPlacements[displayID] ?? DisplayPlacement(x: value.x, y: value.y)
+    }
+
+    public func isVisible(on displayID: UInt32) -> Bool {
+        !allDisplays || placement(for: displayID).visible
+    }
+
+    public func frame(in screen: CGRect, displayID: UInt32? = nil) -> CGRect {
+        let value = normalized
+        let placement = displayID.flatMap { value.allDisplays ? value.displayPlacements[$0] : nil }
         let margin = min(12, max(0, min(screen.width, screen.height) / 4))
         let width = min(168 * value.scale, max(0, screen.width - 2 * margin))
         let height = min(82 * value.scale, max(0, screen.height - 2 * margin))
         let travelX = max(0, screen.width - 2 * margin - width)
         let travelY = max(0, screen.height - 2 * margin - height)
-        return CGRect(x: screen.minX + margin + travelX * value.x,
-                      y: screen.maxY - margin - height - travelY * value.y, width: width, height: height)
+        return CGRect(x: screen.minX + margin + travelX * (placement?.x ?? value.x),
+                      y: screen.maxY - margin - height - travelY * (placement?.y ?? value.y), width: width, height: height)
     }
 
     /// Convert a dragged window origin back to the same normalized coordinates used by Settings.
     public func repositioned(to origin: CGPoint, in screen: CGRect, displayID: UInt32) -> Self {
         var value = normalized
         let margin = min(12, max(0, min(screen.width, screen.height) / 4))
-        let size = value.frame(in: screen).size
+        let size = value.frame(in: screen, displayID: displayID).size
         let travelX = max(0, screen.width - 2 * margin - size.width)
         let travelY = max(0, screen.height - 2 * margin - size.height)
-        value.x = travelX > 0 ? (origin.x - screen.minX - margin) / travelX : 0
-        value.y = travelY > 0 ? (screen.maxY - margin - size.height - origin.y) / travelY : 0
+        let x = travelX > 0 ? (origin.x - screen.minX - margin) / travelX : 0
+        let y = travelY > 0 ? (screen.maxY - margin - size.height - origin.y) / travelY : 0
+        if value.allDisplays {
+            value.displayPlacements[displayID] = DisplayPlacement(x: x, y: y, visible: true)
+        } else {
+            value.x = x
+            value.y = y
+        }
         value.displayID = displayID
         return value.normalized
     }

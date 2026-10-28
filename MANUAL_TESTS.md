@@ -34,7 +34,7 @@ Select Presenting and verify the menu bar visibly says Presenting while the indi
 
 Enable global shortcuts and test Control–Option–Command–1/2/3 from another app. Verify Automatic/Busy/Presenting respectively, with no keyboard focus taken by the indicator. Check the reported registration error if a shortcut is already in use, and verify disabling shortcuts unregisters all three.
 
-Change text, color, size, transparency, location, and display; restart and verify persistence. Right-click → Move indicator, drag between displays, and verify the saved position does not snap back during scans. Test preview start/stop, no preview on opening Settings, and presentation hiding during a preview. Disconnect the chosen display and confirm fallback to the main display.
+Change text, color, size, transparency, location, and display; restart and verify persistence. Right-click → Move indicator, drag between displays, and verify the saved position does not snap back during scans. Test preview start/stop, no preview on opening Settings, and presentation hiding during a preview. Disconnect the chosen display and confirm fallback to the main display. In the Setup and live test section, check permission/bridge status, Check now, Preview Busy, Test Presenting, and Return to Automatic.
 
 ## Pausing, service switches, reports, and presets
 
@@ -46,7 +46,11 @@ Customize each shortcut, test valid alternate keys/modifiers from another app, d
 
 Save, update by name, apply, and delete appearance presets. Verify text/color/size/transparency/location/display choices round-trip and that existing appearance preferences survive upgrade. A preset must not change detection mode or begin recording.
 
-Enable Show on every display, connect/disconnect a monitor, and verify one indicator per connected screen. Move one and confirm shared relative placement, then test returning to one selected display and fallback after disconnection. Enter Presenting and verify every copy hides.
+Enable Show on every display, connect/disconnect a monitor, and verify one indicator per connected screen. Give two displays different positions; move one and confirm the other does not move. Hide one display's indicator and confirm the other stays visible. Restart and verify both positions and visibility persist. Then test returning to one selected display and fallback after disconnection. Enter Presenting and verify every visible copy hides.
+
+With Return to Automatic after sharing stops enabled, choose Presenting before sharing. Confirm it stays selected until own sharing is detected. Stop sharing while the call continues; it should return to Automatic after three complete checks. Verify it stays in Presenting when the meeting disappears, a different call remains, or scans are incomplete.
+
+Repeat a live call and own screen share with Spanish, French, and German client UI where available. Confirm prejoin screens and another participant's presentation do not count as your active call or own sharing.
 
 Use only the keyboard to open Move indicator using the keyboard. Test arrows, Shift+arrows, Option+arrows, Return/Escape, directional buttons, and preview ownership when another preview already exists. Check VoiceOver's custom Move action and each directional button label. The ordinary indicator must remain nonactivating; only the explicitly opened movement window takes focus.
 

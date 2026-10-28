@@ -1,6 +1,8 @@
 (function (root) {
   "use strict";
   const services = new Set(["Google Meet", "Microsoft Teams", "Webex", "Zoom"]);
+  const localizedLeave = ["salir de la llamada", "salir de la reunión", "abandonar la reunión", "quitter l’appel", "quitter l'appel", "quitter la réunion", "anruf verlassen", "besprechung verlassen", "meeting verlassen"];
+  const localizedStopSharing = ["dejar de compartir", "detener la presentación", "dejar de presentar", "arrêter le partage", "arrêter de partager", "arrêter la présentation", "freigabe beenden", "bildschirmfreigabe beenden", "präsentation beenden"];
   const matches = (label, phrases) => phrases.some(phrase => label === phrase || [",", ".", " (", "\n", "\t"].some(suffix => label.startsWith(phrase + suffix)));
   function serviceForURL(value) {
     try {
@@ -20,12 +22,12 @@
     const any = phrases => labels.some(label => matches(label, phrases));
     const ended = any(["rejoin", "return to home", "back to home", "join a meeting", "new meeting"]);
     if (ended) return {inMeeting: false, presenting: false};
-    const presenting = any(["stop sharing", "stop share", "stop presenting", "stop screen sharing"]);
+    const presenting = any(["stop sharing", "stop share", "stop presenting", "stop screen sharing", ...localizedStopSharing]);
     const endPhrases = service === "Google Meet" ? ["leave call", "leave meeting", "hang up"]
       : ["leave call", "leave meeting", "end call", "end meeting", "end meeting for all", "hang up", "leave webinar", "end webinar", "leave or end meeting"];
     const ambiguousEnd = ["Zoom", "Microsoft Teams"].includes(service) && any(["leave", "end"])
       && any(["mute", "unmute", "mute audio", "unmute audio", "start video", "stop video", "turn camera on", "turn camera off", "join audio", "camera", "microphone", "mic", "audio", "video"]);
-    return {inMeeting: presenting || any(endPhrases) || ambiguousEnd, presenting};
+    return {inMeeting: presenting || any([...endPhrases, ...localizedLeave]) || ambiguousEnd, presenting};
   }
   function validState(value) {
     return value && services.has(value.service) && typeof value.inMeeting === "boolean" && typeof value.presenting === "boolean"

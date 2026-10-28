@@ -31,6 +31,9 @@ final class FeatureSettings: ObservableObject {
     @Published var presentationReminders = UserDefaults.standard.bool(forKey: "presentationReminders") {
         didSet { UserDefaults.standard.set(presentationReminders, forKey: "presentationReminders"); onChange?() }
     }
+    @Published var autoReturnAfterSharing = UserDefaults.standard.bool(forKey: "autoReturnAfterSharing") {
+        didSet { UserDefaults.standard.set(autoReturnAfterSharing, forKey: "autoReturnAfterSharing"); onChange?() }
+    }
     @Published var reminderMinutes = UserDefaults.standard.integer(forKey: "reminderMinutes") == 0 ? 15 : UserDefaults.standard.integer(forKey: "reminderMinutes") {
         didSet { UserDefaults.standard.set(reminderMinutes, forKey: "reminderMinutes"); onChange?() }
     }
@@ -45,6 +48,10 @@ final class FeatureSettings: ObservableObject {
     var onPause: ((Int?) -> Void)?
     var onResume: (() -> Void)?
     var onReport: (() -> Void)?
+    var onSetMode: ((DisplayMode) -> Void)?
+    var onPreview: (() -> Void)?
+    var onCheckDetection: (() -> Void)?
+    var onGrantAccess: (() -> Void)?
 }
 
 @MainActor
@@ -206,6 +213,9 @@ struct FeatureSettingsView: View {
             Divider()
             Text("Presentation reminders").font(.headline)
             Toggle("Remind me to return to Automatic", isOn: $features.presentationReminders)
+            Toggle("Return to Automatic after sharing stops", isOn: $features.autoReturnAfterSharing)
+            Text("Only returns after sharing was detected and three complete checks confirm the same call continues without sharing. Otherwise Presenting stays on.")
+                .font(.caption).foregroundStyle(.secondary)
             Picker("Remind after", selection: $features.reminderMinutes) {
                 ForEach([5, 10, 15, 30, 60], id: \.self) { Text("\($0) minutes").tag($0) }
             }

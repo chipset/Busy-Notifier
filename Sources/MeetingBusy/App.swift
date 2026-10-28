@@ -52,6 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var timer: Timer?
     private var scanning = false
     private var tracker = EvidenceTracker()
+    private var presentationReturn = PresentationReturnTracker()
     private var browserEvidence: [MeetingEvidence] = []
     private var evidence: [MeetingEvidence] { (trusted ? tracker.evidence : []) + browserEvidence }
     private var trusted = false
@@ -93,6 +94,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         features.onPause = { [weak self] minutes in self?.pauseDetection(minutes: minutes) }
         features.onResume = { [weak self] in self?.resumeDetection() }
         features.onReport = { [weak self] in self?.showReport() }
+        features.onSetMode = { [weak self] mode in self?.changeMode(mode) }
+        features.onPreview = { [weak self] in self?.preview() }
+        features.onCheckDetection = { [weak self] in self?.poll() }
+        features.onGrantAccess = { [weak self] in self?.grantAccess() }
         updates.onChange = { [weak self] in self?.updateUI() }
         updates.onResult = { [weak self] event, code in self?.diagnostics.record(DiagnosticEntry(event: event, failureCodes: code.map { [$0] } ?? [])) }
         updates.onAvailable = { [weak self] version in
@@ -137,6 +142,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         browserBridge.configure(enabled: features.browserIntegrationEnabled, paused: features.pause.isPaused, services: features.enabledServices)
         browserEvidence = browserBridge.evidence()
+        if !trusted, features.autoReturnAfterSharing,
+           presentationReturn.observe(mode: mode, evidence: browserEvidence, complete: browserBridge.connected) {
+            changeMode(.automatic)
+            return
+        }
         guard !features.pause.isPaused, !features.enabledServices.isEmpty else {
             tracker.clear()
             appearance.lastCheckDescription = features.pause.isPaused ? "Automatic scans are paused." : "Enable a meeting service in Settings to start scanning."
@@ -178,6 +188,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
             self.tracker.accept(result.evidence.sorted { ($0.service.rawValue, $0.signal.rawValue, $0.isPresenting ? 1 : 0) < ($1.service.rawValue, $1.signal.rawValue, $1.isPresenting ? 1 : 0) })
+            if self.features.autoReturnAfterSharing,
+               self.presentationReturn.observe(mode: self.mode, evidence: self.evidence, complete: !result.incomplete) {
+                self.changeMode(.automatic)
+                return
+            }
             self.incomplete = result.incomplete
             self.lastScanFailureCodes = result.failureCodes
             let milliseconds = Int(Date().timeIntervalSince(scanStarted) * 1000)
@@ -329,6 +344,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func changeMode(_ newMode: DisplayMode, minutes: Int? = nil, event: DiagnosticEvent = .modeChanged, refresh: Bool = true) {
         manualOverride.select(newMode, minutes: minutes)
+        presentationReturn.reset()
         notifications.schedulePresentation(startedAt: newMode == .presenting ? manualOverride.startedAt : nil,
                                              minutes: features.reminderMinutes, enabled: features.presentationReminders)
         diagnostics.record(DiagnosticEntry(event: event, mode: newMode))
@@ -339,6 +355,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func configureFeatures() {
+        if !features.autoReturnAfterSharing { presentationReturn.reset() }
         if configuredBrowserIntegration != features.browserIntegrationEnabled {
             configuredBrowserIntegration = features.browserIntegrationEnabled
             browserEvidence = []

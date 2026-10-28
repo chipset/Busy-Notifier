@@ -40,6 +40,8 @@ This implementation does not request microphone, camera, screen recording, or Fu
 
 You can revoke access at any time by turning off Meeting Busy in the same Accessibility settings. Accessibility detection then stops; a connected browser extension can still detect browser meetings; manual Force Busy and explicit previews can still show the indicator.
 
+Settings starts with **Setup and live test**. Check Accessibility there, then optionally install the browser bridge and extension below. Join a call and choose **Check now**; the result should change to **In a meeting**. Use **Preview Busy for 5 seconds** to check appearance and **Test Presenting** to check hiding. Choose **Return to Automatic** when finished.
+
 ## Tell whether the app is running
 
 Choose **About & setup…** from the menu bar menu to see the application version and build number. Quit and reopen after updating to run the newly installed version.
@@ -67,7 +69,7 @@ The camera symbol is filled while the indicator is visible. A presentation symbo
 
 Select **Automatic** from the menu bar menu for normal use. It checks every two seconds while awake. If a previous scan is still running, that tick is skipped, so detection can take longer. Joining or leaving a meeting takes effect after a completed scan.
 
-Opening a meeting app or its prejoin screen should not show the indicator. English meeting controls are currently supported. Hidden controls and changes to meeting clients can cause missed detections. The optional browser extension improves inactive-tab detection.
+Opening a meeting app or its prejoin screen should not show the indicator. English controls and a limited set of Spanish, French, and German leave/share controls are supported. Hidden controls and changes to meeting clients can cause missed detections. The optional browser extension improves inactive-tab detection.
 
 Use **Force Busy** to display your status manually. Return to **Automatic** when finished. Selecting a detection mode also stops any preview.
 
@@ -103,6 +105,8 @@ The app also tries to hide automatically when it finds your Stop sharing, Stop S
 
 While manual Presenting is selected, the menu bar explicitly says **Presenting** and the menu shows how long it has been active. In Settings, optionally enable **Remind me to return to Automatic** and select a delay. Approve Notifications permission if requested. The reminder offers a Return to Automatic action; it never turns your indicator back on by itself. If notifications are denied or silenced, use the menu bar reminder and switch modes manually.
 
+You can also enable **Return to Automatic after sharing stops**. This only acts if Meeting Busy first detects your own sharing control, then sees the same call still active without sharing on three complete checks. If the call disappears or checks are incomplete, Presenting remains selected. Leave this option off if you prefer to switch back manually.
+
 ## Keyboard shortcuts
 
 Enable **Settings… → Keyboard shortcuts → Enable global shortcuts**. These work while another app is active:
@@ -128,7 +132,7 @@ Open the menu bar menu and choose **Settings…**.
 | Size | Choose 50–250% of the default size. |
 | Transparency | 0% is solid; 90% is almost transparent. |
 | Display | Choose the main display or a connected display. An unavailable display falls back to the main display. |
-| Show on every display | Show one indicator on every connected display with the same appearance and relative location. |
+| Show on every display | Show one indicator on each connected display; set each display's position and visibility separately below. |
 | Location | Use a corner/center button, the horizontal and vertical sliders, or the indicator's right-click Move option. |
 | Restore default appearance | Reset the message, color, size, transparency, display choice, and location. |
 
@@ -149,7 +153,7 @@ To cancel before dragging, right-click again and choose **Cancel move**. When yo
 
 For keyboard-only movement, choose **Move indicator using the keyboard…** in the menu or Settings, or **Move using keyboard…** from the box's context menu. VoiceOver users can invoke its Move indicator using keyboard custom action. Arrows move 10 points, Shift+arrows 50, and Option+arrows one point. Directional buttons are also available. Return, Escape, or Done finishes; changes save immediately. A temporary preview starts if needed and ends with the movement window. Presenting always keeps the indicator hidden.
 
-Choose a display in Settings before keyboard movement. With Show on every display enabled, moving one indicator updates the shared relative position on all displays. All copies hide together while presenting. Disconnecting a display removes its indicator.
+Choose a display in Settings before keyboard movement. With Show on every display enabled, moving one indicator updates that display's position. All copies hide together while presenting. Disconnecting a display removes its indicator.
 
 To see changes outside a meeting, enable **Show indicator preview**. This keeps a preview visible until you uncheck it, close Settings, select a detection mode, or choose **Stop preview** from the menu. Opening Settings alone does not enable a preview.
 

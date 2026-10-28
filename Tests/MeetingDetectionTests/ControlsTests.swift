@@ -3,6 +3,27 @@ import CoreGraphics
 @testable import MeetingDetection
 
 final class ControlsTests: XCTestCase {
+    func testPresentationAutoReturnNeedsObservedShareAndThreeCompleteCallChecks() {
+        let sharing = MeetingEvidence(service: .meet, isPresenting: true)
+        let call = MeetingEvidence(service: .meet, isPresenting: false)
+        var tracker = PresentationReturnTracker()
+        XCTAssertFalse(tracker.observe(mode: .presenting, evidence: [call], complete: true))
+        XCTAssertFalse(tracker.observe(mode: .presenting, evidence: [sharing], complete: true))
+        XCTAssertFalse(tracker.observe(mode: .presenting, evidence: [call], complete: false))
+        XCTAssertFalse(tracker.observe(mode: .presenting, evidence: [call], complete: true))
+        XCTAssertFalse(tracker.observe(mode: .presenting, evidence: [call], complete: true))
+        XCTAssertTrue(tracker.observe(mode: .presenting, evidence: [call], complete: true))
+    }
+
+    func testPresentationAutoReturnDoesNotUseOtherCallsOrMissingEvidence() {
+        let sharing = MeetingEvidence(service: .meet, isPresenting: true)
+        let other = MeetingEvidence(service: .teams, isPresenting: false)
+        var tracker = PresentationReturnTracker()
+        XCTAssertFalse(tracker.observe(mode: .presenting, evidence: [sharing], complete: true))
+        for _ in 0..<5 { XCTAssertFalse(tracker.observe(mode: .presenting, evidence: [other], complete: true)) }
+        XCTAssertFalse(tracker.observe(mode: .presenting, evidence: [], complete: true))
+        XCTAssertFalse(tracker.observe(mode: .automatic, evidence: [other], complete: true))
+    }
     func testPauseExpiresAcrossSleepAndSurvivesRelaunch() throws {
         let now = Date(timeIntervalSince1970: 1000)
         for minutes in [15, 60] {

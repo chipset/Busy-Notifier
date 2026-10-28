@@ -32,3 +32,14 @@ test('similar labels and arbitrary message shapes are rejected', () => {
   assert.equal(detector.validState({service:'Unknown',inMeeting:true,presenting:false}), false);
   assert.equal(detector.validState({service:'Zoom',inMeeting:true,presenting:false}), true);
 });
+test('Spanish, French and German controls detect calls and own sharing', () => {
+  for (const [leave, stop] of [
+    ['Salir de la llamada', 'Dejar de compartir'],
+    ["Quitter l'appel", 'Arrêter le partage'],
+    ['Besprechung verlassen', 'Freigabe beenden']
+  ]) {
+    assert.deepEqual(detector.classify('Google Meet', controls([leave, stop])), {inMeeting:true, presenting:true});
+    assert.equal(detector.classify('Google Meet', controls([leave])).inMeeting, true);
+  }
+  assert.equal(detector.classify('Zoom', controls(['Alice is sharing'])).presenting, false);
+});

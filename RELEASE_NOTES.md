@@ -1,15 +1,18 @@
-# Meeting Busy 0.3.1
+# Meeting Busy 0.4.0
 
-This maintenance release moves the project's GitHub home to `chipset/Meeting-Busy` and updates the in-app release checker to use and trust the new repository URL. Meeting detection and indicator behavior are unchanged from 0.3.0.
+Safari local test build for macOS 13 and newer. No paid Apple Developer membership is required for this ad hoc signed development workflow.
 
-Version 0.3.0 may not announce this update automatically because its release-link validation expects the old repository path. Download 0.3.1 directly from this release page, then future update checks will use the new location.
+- Adds an embedded Safari web extension for Google Meet, Teams, Webex, and Zoom call and own-sharing detection in inactive tabs. The macOS Safari background page stays persistent so its heartbeat is independent of inactive tab timers.
+- Adds Safari to Settings → Browser integration, with a button to open Safari extension settings and local-bridge status.
+- Uses a sandboxed native handler and authenticated IPv4 loopback bridge. Only provider, ephemeral frame IDs, and call/sharing flags reach the app. No audio, video, URLs, titles, participants, or chat are transmitted.
+- Pause, service switches, stale evidence expiry, Available, and Presenting work with Safari as with the other supported browsers. Native-client Accessibility detection remains available.
 
-## Installation and security
+## Enable Safari
 
-Download `MeetingBusy-0.3.1-universal.zip`, extract it, and move `Meeting Busy.app` to Applications. Grant Accessibility permission for native clients and Safari. Optional browser detection requires separate bridge and extension installation. The browser extension ZIPs are included for direct distribution; the unsigned Firefox ZIP is temporary until Mozilla signs an unlisted XPI.
+Move Meeting Busy.app to Applications, quit old copies, and open the app. Enable browser integration and select Safari in Settings. In Safari Settings → Advanced, enable Show features for web developers. In Settings → Developer, allow unsigned extensions. Then enable Meeting Busy under Extensions and allow its supported meeting sites. Open the extension popup and choose Connect open meeting tabs, or reload meeting tabs.
 
-This direct-download build is ad hoc signed and is not notarized. The release script supports Developer ID signing and notarization when a signing identity and notary profile are available. No Mac App Store submission is involved.
+Safari resets Allow unsigned extensions when it quits. Repeat that approval after every Safari restart. The app cannot bypass this Safari requirement. Safari 16 uses Develop → Allow Unsigned Extensions instead.
 
-## Validation and limits
+## Build status
 
-Automated Swift and JavaScript tests, native-host protocol checks, and universal packaging are required before publication. Live meeting-client, Firefox, VoiceOver, multi-display, and screen-sharing checks remain manual. Detection is best effort; choose Presenting before sharing when immediate hiding matters.
+This preview is ad hoc signed and not notarized. It is for local testing outside the Mac App Store. It does not require Apple account credentials or a fee. Automated tests cover the shared detector, Safari message transport, real sandboxed native handler, authenticated loopback bridge, policy filtering, and universal packaging. Interactive Safari and real meeting-client acceptance checks remain necessary; this build is not presented as live-client verified. Choose Presenting before sharing when immediate hiding matters.

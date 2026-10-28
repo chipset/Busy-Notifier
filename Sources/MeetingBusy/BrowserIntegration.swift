@@ -1,11 +1,13 @@
 import AppKit
 import SwiftUI
+import SafariServices
 import MeetingDetection
 
 enum BridgeBrowser: String, CaseIterable {
-    case chrome = "Google Chrome", edge = "Microsoft Edge", brave = "Brave", chromium = "Chromium", firefox = "Firefox"
+    case safari = "Safari", chrome = "Google Chrome", edge = "Microsoft Edge", brave = "Brave", chromium = "Chromium", firefox = "Firefox"
     var relativeHostsDirectory: String {
         switch self {
+        case .safari: ""
         case .chrome: "Google/Chrome/NativeMessagingHosts"
         case .edge: "Microsoft Edge/NativeMessagingHosts"
         case .brave: "BraveSoftware/Brave-Browser/NativeMessagingHosts"
@@ -13,18 +15,20 @@ enum BridgeBrowser: String, CaseIterable {
         case .firefox: "Mozilla/NativeMessagingHosts"
         }
     }
-    var extensionFolder: String { self == .firefox ? "firefox" : "chromium" }
+    var extensionFolder: String { self == .safari ? "safari" : (self == .firefox ? "firefox" : "chromium") }
 }
 
 private struct ExtensionIdentity: Decodable { var chromiumID: String; var firefoxID: String }
 
 @MainActor
 final class BrowserBridgeController: ObservableObject {
-    @Published var browser = BridgeBrowser.chrome
+    @Published var browser = BridgeBrowser.safari
     @Published private(set) var status = "Browser integration is off."
-    @Published private(set) var setupStatus = "Install a bridge entry, then load the extension into your browser."
+    @Published private(set) var setupStatus = "Choose your browser and enable its extension."
     private(set) var connected = false
     private(set) var lastObservedAt: Date?
+    @Published private(set) var safariStatus = "Safari bridge is off."
+    private var safariServer: SafariBridgeServer?
     private var configuration: BrowserBridgePolicy?
     private let store = BrowserBridgeStore(directory: BrowserBridgeStore.defaultDirectory)
 
@@ -37,6 +41,17 @@ final class BrowserBridgeController: ObservableObject {
         store.clearSnapshots()
         do { try store.writePolicy(policy) }
         catch { configuration = nil; status = "Local browser bridge storage is unavailable."; return }
+        if enabled, safariServer == nil {
+            if let url = Bundle.main.resourceURL?.appendingPathComponent("SafariBridge.json"),
+               let data = try? Data(contentsOf: url),
+               let settings = try? JSONDecoder().decode(SafariBridgeConfiguration.self, from: data) {
+                do {
+                    safariServer = try SafariBridgeServer(configuration: settings, store: store) { [weak self] message in
+                        Task { @MainActor in self?.safariStatus = message }
+                    }
+                } catch { safariStatus = "Could not start the Safari bridge. Quit other copies of Meeting Busy and try again." }
+            } else { safariStatus = "This build does not include the Safari bridge. Use the packaged app." }
+        } else if !enabled { safariServer?.stop(); safariServer = nil; safariStatus = "Safari bridge is off." }
         status = !enabled ? "Browser integration is off." : (paused ? "Browser detection is paused." : "Waiting for a browser extension connection…")
     }
 
@@ -55,6 +70,7 @@ final class BrowserBridgeController: ObservableObject {
     private var hostManifest: URL { applicationSupport.appendingPathComponent(browser.relativeHostsDirectory, isDirectory: true).appendingPathComponent("local.meetingbusy.browser.json") }
 
     func install() {
+        if browser == .safari { openSafariSettings(); return }
         guard let executable = Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("MeetingBusyBrowserHost"),
               FileManager.default.isExecutableFile(atPath: executable.path),
               let resources = Bundle.main.resourceURL?.appendingPathComponent("BrowserExtension"),
@@ -83,13 +99,27 @@ final class BrowserBridgeController: ObservableObject {
     }
 
     func remove() {
+        if browser == .safari { setupStatus = "Disable Meeting Busy in Safari Settings → Extensions."; openSafariSettings(); return }
         do {
             if FileManager.default.fileExists(atPath: hostManifest.path) { try FileManager.default.removeItem(at: hostManifest) }
             setupStatus = "Removed the \(browser.rawValue) bridge entry. Remove the extension in the browser separately if desired."
         } catch { setupStatus = "The selected browser bridge could not be removed." }
     }
 
+    private func openSafariSettings() {
+        guard let plugins = Bundle.main.builtInPlugInsURL,
+              FileManager.default.fileExists(atPath: plugins.appendingPathComponent("MeetingBusySafari.appex").path) else {
+            setupStatus = "Use the Safari-enabled Meeting Busy.app build."; return
+        }
+        setupStatus = "Safari Settings → Developer: allow unsigned extensions. Then enable Meeting Busy under Extensions and allow its supported meeting sites. Repeat unsigned-extension approval after restarting Safari."
+        SFSafariApplication.showPreferencesForExtension(withIdentifier: "local.meetingbusy.safari") { [weak self] error in
+            guard error != nil else { return }
+            Task { @MainActor in self?.setupStatus = "Open Safari Settings → Developer, allow unsigned extensions, then enable Meeting Busy under Extensions. Launch the packaged app from its permanent location first." }
+        }
+    }
+
     func openExtensionFolder() {
+        if browser == .safari { openSafariSettings(); return }
         guard FileManager.default.fileExists(atPath: installedExtension.path) else { setupStatus = "Install the selected browser's bridge first."; return }
         NSWorkspace.shared.open(installedExtension)
     }
@@ -108,14 +138,18 @@ struct BrowserIntegrationSettings: View {
             Picker("Browser", selection: $bridge.browser) {
                 ForEach(BridgeBrowser.allCases, id: \.self) { Text($0.rawValue).tag($0) }
             }
-            HStack {
+            if bridge.browser == .safari {
+                Button("Open Safari extension settings") { bridge.install() }
+                Text(bridge.safariStatus).font(.caption).foregroundStyle(.secondary)
+            } else { HStack {
                 Button("Install/update bridge") { bridge.install() }
                 Button("Open extension folder") { bridge.openExtensionFolder() }
             }
-            Button("Remove selected bridge and turn integration off") { features.browserIntegrationEnabled = false; bridge.remove() }
+            }
+            Button(bridge.browser == .safari ? "Turn browser integration off and open Safari settings" : "Remove selected bridge and turn integration off") { features.browserIntegrationEnabled = false; bridge.remove() }
             Text(bridge.setupStatus).font(.caption).foregroundStyle(.secondary)
             Text(bridge.status).font(.caption).foregroundStyle(.secondary)
-            Text("Chrome/Edge/Brave/Chromium: load the folder as an unpacked extension. Firefox: temporary add-on loading requires reloading after a browser restart. Safari continues to use Accessibility detection.")
+            Text("Chrome/Edge/Brave/Chromium: load the folder as an unpacked extension. Firefox: temporary add-on loading requires reloading after a browser restart. Safari: enable the embedded extension and Allow unsigned extensions after each Safari restart. Accessibility remains a fallback.")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

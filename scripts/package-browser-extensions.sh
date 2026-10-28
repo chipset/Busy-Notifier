@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)"
-for browser in chromium firefox; do
+for browser in chromium firefox safari; do
   manifest_version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "BrowserExtension/$browser/manifest.json")"
   if [[ "$manifest_version" != "$version" ]]; then
     echo "$browser manifest version $manifest_version does not match app version $version" >&2
@@ -19,3 +19,4 @@ for browser in chromium firefox; do
   echo "Prepared $archive"
 done
 echo "Firefox package requires Mozilla signing before users can install it permanently."
+echo "Safari native messaging requires the extension embedded in Meeting Busy.app; enable unsigned extensions after each Safari restart."

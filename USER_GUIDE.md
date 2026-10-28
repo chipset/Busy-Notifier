@@ -29,7 +29,7 @@ This creates an exception for that app. Do not disable Gatekeeper system-wide or
 
 ## Grant Accessibility access
 
-The security exception above and Accessibility permission are separate approvals. Automatic native-client and Safari detection needs **Accessibility** permission to inspect other apps' user interfaces. This is a broad permission that can allow an app to read and control other apps, so grant it only to a copy you trust. Meeting Busy uses it to inspect supported meeting apps and browser controls. [Apple explains Accessibility access here](https://support.apple.com/guide/mac-help/allow-accessibility-apps-to-access-your-mac-mh43185/mac).
+The security exception above and Accessibility permission are separate approvals. Automatic native-client and browser detection without an extension needs **Accessibility** permission to inspect other apps' user interfaces. This is a broad permission that can allow an app to read and control other apps, so grant it only to a copy you trust. Meeting Busy uses it to inspect supported meeting apps and browser controls. [Apple explains Accessibility access here](https://support.apple.com/guide/mac-help/allow-accessibility-apps-to-access-your-mac-mh43185/mac).
 
 1. In Meeting Busy's welcome dialog, select **Grant Accessibility access**. You can also choose **Grant Accessibility access…** from its menu bar menu.
 2. In **System Settings → Privacy & Security → Accessibility**, turn on **Meeting Busy**.
@@ -85,7 +85,7 @@ Choose **Available — hide indicator** to hide the box immediately without mark
 
 Open **Settings → Browser integration**, enable the extension setting, select your browser, and click **Install/update bridge**. Then click **Open extension folder** and load that folder through your browser's extension manager. Follow the [complete browser installation and privacy instructions](BrowserExtension/README.md).
 
-Chrome, Edge, Brave, and Chromium use an unpacked developer extension. Firefox uses a temporary unsigned add-on that must be reloaded after each browser restart. There is no Safari extension; Safari continues to use Accessibility. Place the app in Applications before bridge installation. After an update or move, reinstall the bridge and reload the extension. Managed browsers may restrict developer extensions.
+Chrome, Edge, Brave, and Chromium use an unpacked developer extension. Firefox uses a temporary unsigned add-on that must be reloaded after each browser restart. Safari uses the embedded extension: enable Allow unsigned extensions in Safari Settings → Developer after each Safari restart, enable Meeting Busy under Extensions, and allow its supported meeting sites. No paid developer account is needed for this local workflow. Safari Accessibility detection remains available as a fallback. Place the app in Applications before bridge installation. After an update or move, reinstall the bridge and reload the extension. Managed browsers may restrict developer extensions.
 
 The extension can detect supported browser controls without Accessibility; native clients still need it. It sends only local provider/call/sharing flags with an ephemeral tab/frame ID. Its five-second background heartbeat is independent of inactive-tab timers; the app reads state every two seconds. Tab close/navigation clears its contribution. Crashed/disconnected state expires after 20 seconds plus the next app poll. Frozen or discarded pages and changed controls may still cause misses. Test your client, and choose Presenting before sharing for immediate hiding.
 

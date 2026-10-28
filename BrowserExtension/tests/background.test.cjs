@@ -71,3 +71,16 @@ test('native disconnection clears policy and stops reports',()=>{
   w.native.onDisconnect.emit();
   assert.equal(p.sent.at(-1).policy.enabled,false);
 });
+test('Safari Manifest V2 connects existing meeting tabs using its supported injection API',async()=>{
+  const native=port(), injected=[], hosts=['https://meet.google.com/*'];
+  const runtime={id:'safari',onConnect:event(),onMessage:event(),onInstalled:event(),onStartup:event(),
+    getManifest(){return {manifest_version:2,permissions:['nativeMessaging',...hosts]};}};
+  const tabs={onRemoved:event(),onUpdated:event(),query:async options=>{
+    assert.deepEqual(Array.from(options.url),hosts); return [{id:4}];
+  },executeScript:async(id,options)=>{injected.push({id,...options});}};
+  const context={browser:{runtime,tabs},MeetingBusyDetector:detector,
+    MeetingBusySafariTransport:{connect:()=>native},setInterval(){},setTimeout(){},clearTimeout(){}};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../shared/background.js'),'utf8'),context);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(injected,[{id:4,file:'detector.js',allFrames:true},{id:4,file:'content.js',allFrames:true}]);
+});

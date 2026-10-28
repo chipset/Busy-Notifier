@@ -1,8 +1,22 @@
 # Meeting Busy browser integration
 
-This optional extension supplies meeting and own-screen-sharing state from inactive tabs to the macOS app. It supports English controls in Google Meet, Teams, Webex, and Zoom web clients. Native desktop clients still use Accessibility. Safari continues to use Accessibility; there is no Safari extension in this package.
+This optional extension supplies meeting and own-screen-sharing state from inactive tabs to the macOS app. It supports English controls in Google Meet, Teams, Webex, and Zoom web clients. Native desktop clients still use Accessibility. Safari has an embedded local extension; its free unsigned setup is described below.
 
 Spanish, French, and German call and sharing labels have limited best-effort coverage. Verify each client version with a live call.
+
+## Safari: local use without an Apple Developer fee
+
+The Safari extension is embedded in the Safari-enabled **Meeting Busy.app**. A plain extension folder or ZIP cannot supply its native connection to the app.
+
+1. Move the packaged app to a permanent location, preferably Applications, quit older copies, and open it at least once.
+2. In Meeting Busy **Settings → Browser integration**, enable **Use browser extension meeting detection**, choose **Safari**, and click **Open Safari extension settings**.
+3. In Safari **Settings → Advanced**, enable **Show features for web developers**. In **Settings → Developer**, enable **Allow unsigned extensions**. Safari 16 uses **Develop → Allow Unsigned Extensions** instead.
+4. In Safari **Settings → Extensions**, enable **Meeting Busy** and allow access to the supported meeting sites. Enable it in the Safari profile where you attend calls.
+5. Open the extension popup and choose **Connect open meeting tabs**, or reload existing meeting tabs. The popup should say **Connected to Meeting Busy**. Join and leave a call and start and stop your own screen share to verify detection.
+
+Safari resets **Allow unsigned extensions** whenever it quits. Repeat that approval after each Safari restart. This is Apple's supported local-development workflow and needs no paid developer membership. Meeting Busy cannot bypass that approval. [Apple's local unsigned-extension instructions](https://developer.apple.com/documentation/safariservices/running-your-safari-web-extension)
+
+The macOS-only Safari variant uses a persistent Manifest V2 background page so its five-second heartbeat does not depend on inactive tab timers. The sandboxed native handler forwards only the validated state envelope to an IPv4 loopback listener in the running app. A random per-build token stays inside the native bundles; it is never sent to meeting webpages. The listener is disabled when browser integration is off, rejects web origins and unauthenticated requests, and does not contact an external service. Pauses, service switches, and stale-evidence expiry apply as with other browsers. Quit duplicate app copies if the Safari bridge reports a port conflict.
 
 ## Direct browser distribution
 
@@ -10,7 +24,7 @@ Run `./scripts/package-browser-extensions.sh` from the repository root. It valid
 
 For a Firefox extension that survives restart, submit the Firefox ZIP to Mozilla for **unlisted** signing, then distribute the resulting signed XPI directly. This uses Mozilla's signing service without a public add-on listing. The unsigned ZIP is only useful for temporary development loading. Keep the Chromium public key and Firefox add-on ID stable, and verify each installed extension ID against the native messaging allowlist. No public browser store listing is part of this workflow. [Chrome distribution rules](https://developer.chrome.com/docs/extensions/how-to/distribute) · [Firefox self-distribution](https://extensionworkshop.com/documentation/publish/install-self-distributed/)
 
-## Install
+## Install Chromium or Firefox
 
 1. Put `Meeting Busy.app` in its permanent location, open it, and go to **Settings → Browser integration**.
 2. Enable **Use browser extension meeting detection**, choose your browser, and click **Install/update bridge**. This registers a native messaging host for your macOS user and copies the extension into Application Support. It does not install an extension into the browser automatically.

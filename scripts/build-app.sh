@@ -50,6 +50,7 @@ cp Resources/Info.plist "$app/Contents/Info.plist"
 ./scripts/build-browser-extension.sh "$app/Contents/Resources/BrowserExtension"
 swift scripts/make-icon.swift "$PWD/.build/AppIcon.iconset" "$app/Contents/Resources/AppIcon.icns"
 cp "$PWD/.build/AppIcon.iconset/icon_512x512@2x.png" "$PWD/dist/AppIcon.png"
+./scripts/build-safari-extension.sh "$app" "$configuration" "$architecture"
 signing_identity="${MEETING_BUSY_SIGNING_IDENTITY:--}"
 if [[ "$signing_identity" == "-" ]]; then
   codesign --force --sign - --identifier local.meetingbusy.browser "$app/Contents/MacOS/MeetingBusyBrowserHost"

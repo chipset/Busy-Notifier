@@ -101,7 +101,7 @@ private struct SettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 Text("Setup and live test").font(.title2.bold())
-                Text("1. Accessibility: \(AXIsProcessTrusted() ? "granted" : "needed for native clients and Safari")")
+                Text("1. Accessibility: \(AXIsProcessTrusted() ? "granted" : "needed for native clients and browser fallback")")
                 if !AXIsProcessTrusted() { Button("Grant Accessibility access…") { features.onGrantAccess?() } }
                 Text("2. Browser extension (optional): \(bridge.status)")
                 Text("Install its bridge and extension in Browser integration below to detect inactive tabs.")

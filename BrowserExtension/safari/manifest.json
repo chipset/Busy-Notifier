@@ -1,0 +1,58 @@
+{
+  "manifest_version": 2,
+  "name": "Meeting Busy \u2014 background meeting detection",
+  "version": "0.4.0",
+  "description": "Reports meeting and screen-sharing state from supported meeting tabs to the local Meeting Busy app.",
+  "permissions": [
+    "nativeMessaging",
+    "https://meet.google.com/*",
+    "https://teams.microsoft.com/*",
+    "https://teams.live.com/*",
+    "https://teams.cloud.microsoft/*",
+    "https://*.webex.com/*",
+    "https://webex.com/*",
+    "https://*.zoom.us/*",
+    "https://zoom.us/*",
+    "https://*.zoom.com/*",
+    "https://zoom.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://meet.google.com/*",
+        "https://teams.microsoft.com/*",
+        "https://teams.live.com/*",
+        "https://teams.cloud.microsoft/*",
+        "https://*.webex.com/*",
+        "https://webex.com/*",
+        "https://*.zoom.us/*",
+        "https://zoom.us/*",
+        "https://*.zoom.com/*",
+        "https://zoom.com/*"
+      ],
+      "js": [
+        "detector.js",
+        "content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "background": {
+    "scripts": [
+      "detector.js",
+      "safari-transport.js",
+      "background.js"
+    ],
+    "persistent": true
+  },
+  "browser_action": {
+    "default_title": "Meeting Busy",
+    "default_popup": "popup.html"
+  },
+  "browser_specific_settings": {
+    "safari": {
+      "strict_min_version": "16.0"
+    }
+  }
+}

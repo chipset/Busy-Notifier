@@ -56,6 +56,7 @@ if $notarize; then ./scripts/package-release.sh --notarize
 else ./scripts/package-release.sh
 fi
 python3 scripts/test-browser-host.py
+python3 scripts/test-safari-handler.py
 archive="dist/MeetingBusy-$version-universal.zip"
 checksum="$archive.sha256"
 git push -u origin main

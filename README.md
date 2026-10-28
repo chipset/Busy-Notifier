@@ -6,9 +6,9 @@ Start with the [user guide](USER_GUIDE.md) for installation, macOS security prom
 
 ## Run
 
-Open `dist/Meeting Busy.app`. Grant **Accessibility** access in System Settings → Privacy & Security → Accessibility for native-client and Safari detection. The optional Chromium/Firefox browser extension can detect supported browser meetings without that permission. The app lives in the menu bar, with no Dock icon. If access is not picked up after enabling it, quit and reopen the app.
+Open `dist/Meeting Busy.app`. Grant **Accessibility** access in System Settings → Privacy & Security → Accessibility for native-client detection and browser detection without an extension. The optional Safari/Chromium/Firefox browser extension can detect supported browser meetings without that permission. The app lives in the menu bar, with no Dock icon. If access is not picked up after enabling it, quit and reopen the app.
 
-To rebuild with Xcode or the Swift command line tools:
+To rebuild with full Xcode (including its Safari extension converter) installed:
 
 ```sh
 ./scripts/build-app.sh
@@ -53,7 +53,7 @@ Stop sharing / Stop presenting controls automatically hide the indicator. Only y
 
 ## Detection coverage and limits
 
-Optional **Settings → Browser integration** adds a local native-messaging extension for Chrome, Edge, Brave, Chromium, and Firefox. Its purpose is to detect calls and your own screen sharing in inactive meeting tabs, which Accessibility can miss. Native clients and Safari still need Accessibility; **there is no Safari extension**. Follow the [browser setup instructions](BrowserExtension/README.md); enabling the setting alone does not install the extension. Firefox currently uses temporary unsigned add-on loading and must be reloaded after browser restart. This is a developer extension, not a store-published extension.
+Optional **Settings → Browser integration** adds a local native-messaging extension for Safari, Chrome, Edge, Brave, Chromium, and Firefox. Its purpose is to detect calls and your own screen sharing in inactive meeting tabs, which Accessibility can miss. Native clients still need Accessibility. Safari now has an embedded extension for local use without a paid Apple Developer account. Enable **Allow unsigned extensions** in Safari Settings → Developer after every Safari restart, then enable Meeting Busy under Extensions and allow supported meeting sites. Follow the [browser setup instructions](BrowserExtension/README.md); enabling the setting alone does not install the extension. Firefox currently uses temporary unsigned add-on loading and must be reloaded after browser restart. These are local developer extensions. Safari uses an embedded native handler; its authenticated bridge listens only on 127.0.0.1 and is enabled by the app’s browser-integration switch.
 
 The extension sends only provider and call/sharing flags with an ephemeral tab/frame ID to the bundled local host. Background heartbeats run every five seconds; the app reads them every two seconds. On disconnect, stale browser evidence expires after 20 seconds. Pause and service switches apply to both detection paths. No meeting content or URLs are written to the bridge. Frozen/discarded pages and changed controls can still prevent detection; live-client testing is necessary.
 

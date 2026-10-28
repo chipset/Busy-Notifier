@@ -36,7 +36,7 @@ function connectNative() {
   if (nativePort) return;
   clearTimeout(reconnectTimer);
   try {
-    const port = api.runtime.connectNative(nativeHost);
+    const port = (globalThis.MeetingBusySafariTransport ? globalThis.MeetingBusySafariTransport.connect() : api.runtime.connectNative(nativeHost));
     nativePort = port;
     port.onMessage.addListener(reply => {
       if (nativePort !== port) return;
@@ -81,9 +81,16 @@ api.tabs.onUpdated.addListener((tabID, change) => {
 });
 async function connectOpenTabs() {
   const manifest = api.runtime.getManifest();
-  const tabs = await api.tabs.query({url: manifest.host_permissions});
+  const patterns = manifest.host_permissions || manifest.permissions.filter(value => value.startsWith("https://"));
+  const tabs = await api.tabs.query({url: patterns});
   for (const tab of tabs) {
-    try { await api.scripting.executeScript({target: {tabId: tab.id, allFrames: true}, files: ["detector.js", "content.js"]}); } catch (_) {}
+    try {
+      if (manifest.manifest_version === 2) {
+        for (const file of ["detector.js", "content.js"]) await api.tabs.executeScript(tab.id, {file, allFrames: true});
+      } else {
+        await api.scripting.executeScript({target: {tabId: tab.id, allFrames: true}, files: ["detector.js", "content.js"]});
+      }
+    } catch (_) {}
   }
 }
 api.runtime.onMessage.addListener((message, sender, sendResponse) => {

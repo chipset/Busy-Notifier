@@ -1,12 +1,12 @@
 # Meeting Busy
 
-A native macOS menu bar app that shows a red **Busy** box at the upper left of the main display while a Webex, Microsoft Teams, Google Meet, or Zoom call is active. The box stays above ordinary windows, follows Spaces and full-screen apps, and can be repositioned from its right-click menu without taking keyboard focus. Requires macOS 13 or newer.
+A native macOS menu bar app that shows a **Busy** box while a Webex, Microsoft Teams, Google Meet, or Zoom call is active. Its default is red at the upper left of the main display; text, color, size, transparency, and display placement are customizable. The box stays above ordinary windows, follows Spaces and full-screen apps, and can be repositioned without taking keyboard focus. Requires macOS 13 or newer.
 
 Start with the [user guide](USER_GUIDE.md) for installation, macOS security prompts, Accessibility permission, settings, and troubleshooting.
 
 ## Run
 
-Open `dist/Meeting Busy.app`. On first launch, grant **Accessibility** access in System Settings → Privacy & Security → Accessibility. The app lives in the menu bar, with no Dock icon. If access is not picked up after enabling it, quit and reopen the app.
+Open `dist/Meeting Busy.app`. Grant **Accessibility** access in System Settings → Privacy & Security → Accessibility for native-client and Safari detection. The optional Chromium/Firefox browser extension can detect supported browser meetings without that permission. The app lives in the menu bar, with no Dock icon. If access is not picked up after enabling it, quit and reopen the app.
 
 To rebuild with Xcode or the Swift command line tools:
 
@@ -16,6 +16,8 @@ open "dist/Meeting Busy.app"
 ```
 
 The script builds a universal app for Apple Silicon and Intel by default; `./scripts/build-app.sh debug native` builds only for the current Mac. Default builds are ad hoc signed. Keep the app in a permanent location before enabling **Launch at login**. Rebuilds may require granting Accessibility access again. A Developer ID certificate and notarization credentials are not included; see [releasing instructions](RELEASING.md) for identified-developer builds and the [first-launch security instructions](USER_GUIDE.md#open-a-build-that-macos-blocks) for development builds.
+
+Ad hoc signatures identify a particular build, so macOS may treat each changed build as a new app for Accessibility permission. The app can open the permission prompt but cannot silently approve itself. To avoid repeated approval on ordinary direct-download updates, sign releases with the same **Developer ID Application** identity and keep the bundle identifier and installed path stable. Switching from an ad hoc build to a Developer ID build may require one more approval. See [permission repair](USER_GUIDE.md#update-or-repair-permissions) if access is lost. [Apple: code identity across versions](https://developer.apple.com/documentation/technotes/tn3127-inside-code-signing-requirements)
 
 The application icon is a white camera with a busy badge on a red gradient. `scripts/make-icon.swift` draws the vector artwork at standard macOS icon resolutions; the build script packages `AppIcon.icns` and exports `dist/AppIcon.png` for previewing. Changing the indicator color does not change the application icon or menu bar symbol.
 
@@ -41,7 +43,7 @@ To move the visible box, **right-click → Move indicator**, then drag it with t
 
 **Move indicator using the keyboard…** is available in the menu, Settings, context menu, and the indicator's accessibility custom action. Arrows move 10 points, Shift+arrows 50, and Option+arrows 1. Directional buttons are also provided. Return/Escape finishes. A temporary preview starts if needed and ends with the movement session; Presenting still hides the indicator. Every move saves immediately.
 
-**Show on every display** renders an indicator on each connected display. Otherwise the selected display is used, with fallback to the main display. Each display can have its own position and visibility; displays without an override use the global location. Dragging an indicator saves that display's position. Disconnected/unused indicator windows are closed.
+**Show on every display** can render an indicator on each connected display. Otherwise the selected display is used, with fallback to the main display. Each display can have its own position and visibility; displays without an override use the global location. Dragging an indicator saves that display's position. Disconnected/unused indicator windows are closed.
 
 **Appearance presets** save full text/color/size/transparency/location/display settings locally. Meeting, Recording, and Do not disturb are supplied initially. Save with an existing name to update a preset, apply it from Settings or the menu, or delete it. Presets do not change detection mode or start recording. Existing appearance settings are preserved on upgrade.
 
@@ -51,7 +53,7 @@ Stop sharing / Stop presenting controls automatically hide the indicator. Only y
 
 ## Detection coverage and limits
 
-Optional **Settings → Browser integration** adds a local native-messaging extension for Chrome, Edge, Brave, Chromium, and Firefox. It detects supported call controls in inactive tabs without needing Accessibility permission. Native clients and Safari still need Accessibility. Follow the [browser setup instructions](BrowserExtension/README.md); enabling the setting alone does not install the extension. Firefox currently uses temporary unsigned add-on loading and must be reloaded after browser restart. This is a developer extension, not a store-published extension.
+Optional **Settings → Browser integration** adds a local native-messaging extension for Chrome, Edge, Brave, Chromium, and Firefox. Its purpose is to detect calls and your own screen sharing in inactive meeting tabs, which Accessibility can miss. Native clients and Safari still need Accessibility; **there is no Safari extension**. Follow the [browser setup instructions](BrowserExtension/README.md); enabling the setting alone does not install the extension. Firefox currently uses temporary unsigned add-on loading and must be reloaded after browser restart. This is a developer extension, not a store-published extension.
 
 The extension sends only provider and call/sharing flags with an ephemeral tab/frame ID to the bundled local host. Background heartbeats run every five seconds; the app reads them every two seconds. On disconnect, stale browser evidence expires after 20 seconds. Pause and service switches apply to both detection paths. No meeting content or URLs are written to the bridge. Frozen/discarded pages and changed controls can still prevent detection; live-client testing is necessary.
 
@@ -71,7 +73,7 @@ Update checks read the latest stable release in `chipset/Meeting-Busy` on GitHub
 
 Open **Settings… → Meeting detection → Detection details**. This shows the running app's version and path, Accessibility permission, application IDs, readable window/control counts, and scan failures. It does not include meeting titles or chat text. Zero controls or Accessibility errors indicate the app cannot inspect the client; zero meeting matches with readable controls indicates the client's UI does not match the current rules.
 
-After rebuilding this locally signed app, macOS may invalidate its Accessibility authorization. Quit Meeting Busy, remove its old entry from System Settings → Privacy & Security → Accessibility, add the updated `dist/Meeting Busy.app`, enable it, and reopen that copy. Confirm **Automatic** is selected and **I’m presenting** is off. While troubleshooting, Force Busy provides a manual indicator.
+After updating an ad hoc signed build, first reopen Meeting Busy and check Accessibility status in Settings. If access is denied, quit, remove its old entry from System Settings → Privacy & Security → Accessibility, add the updated `dist/Meeting Busy.app`, enable it, and reopen that copy. Confirm **Automatic** is selected and **I’m presenting** is off. While troubleshooting, Force Busy provides a manual indicator.
 
 A command-line diagnostic is also available (it reports the permissions of that invocation, which may differ in a restricted shell):
 
@@ -86,18 +88,18 @@ swift test
 node --test BrowserExtension/tests/*.test.cjs
 ```
 
-The unit tests cover call/prejoin distinctions, service URL validation, actionable controls versus page text, presentation controls, permission state, overrides, Zoom post-call/menu behavior, stale evidence, timers, release versions/URLs, log rotation and schemas, and indicator geometry/persistence. They do not simulate real conferencing clients. See [manual acceptance checks](MANUAL_TESTS.md) for the live-client and interactive release checks that remain necessary.
+The unit tests cover call/prejoin distinctions, service URL validation, actionable controls versus page text, presentation controls and guarded auto-return, permission state, overrides, Zoom post-call/menu behavior, stale evidence, timers, release versions/URLs, log rotation and schemas, and per-display placement/persistence. They do not simulate real conferencing clients. See [manual acceptance checks](MANUAL_TESTS.md) for the live-client and interactive release checks that remain necessary.
 
 Manual checks with Accessibility enabled:
 
 1. Open each client without joining; no Busy box should appear.
 2. Join a call, including one with camera and microphone off; the box should appear.
-3. Switch apps and Spaces; the box should remain at the upper left on the main display.
-4. Start and stop screen sharing; verify the box hides and returns. Repeat with the meeting browser tab in the background and check the manual presenting override.
+3. Switch apps and Spaces; the box should remain at its configured position on the selected displays.
+4. Start and stop screen sharing; verify automatic hiding and return. Repeat with the meeting browser tab in the background and check manual Presenting and its optional auto-return setting.
 5. Have another participant share; Busy should remain visible.
 6. Leave the call; the box should disappear. Revoke Accessibility access and confirm the menu reports setup is needed.
 7. Preview the box, change the main display, and test sleep/wake and Launch at login.
-8. Change size, transparency, display, and position in Settings. Confirm changes apply immediately, stay on screen, and persist after quitting/reopening. Close Settings to end its preview.
+8. Change size, transparency, display, per-display visibility, and position in Settings. Confirm changes apply immediately, stay on screen, and persist after quitting/reopening. Close Settings to end its preview.
 9. Right-click the indicator, choose Move indicator, and drag it within and between displays. Confirm it does not snap back during a scan, retains its position after relaunch, and still hides when presenting. Check Control-click and Cancel move as well.
 
 ## Implementation

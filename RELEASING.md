@@ -22,6 +22,8 @@ For a faster build for the current Mac only:
 
 This checkout does not include a signing certificate, private key, or Apple credentials. An Apple Developer ID Application certificate with its private key must be installed in the releasing Mac's Keychain before making an identified-developer release. The release script enables hardened runtime and a secure timestamp for that signature, then submits the archive, staples Apple's accepted ticket, and verifies the app. See [Apple's notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow).
 
+Use the same Developer ID Application identity, `local.meetingbusy` bundle identifier, and installation path for successive releases. A stable code-signing requirement lets macOS recognize the app across versions for privacy approvals such as Accessibility; the default ad hoc signature is tied to one build and may require reapproval after each update. Switching existing users from an ad hoc build to a Developer ID build may require one final approval. [Apple's code-signing explanation](https://developer.apple.com/documentation/technotes/tn3127-inside-code-signing-requirements)
+
 Use Xcode or the Apple Developer account tools to obtain and install the Developer ID Application certificate. Store notarization credentials interactively in Keychain:
 
 ```sh

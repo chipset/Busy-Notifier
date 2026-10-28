@@ -85,7 +85,7 @@ Choose **Available — hide indicator** to hide the box immediately without mark
 
 Open **Settings → Browser integration**, enable the extension setting, select your browser, and click **Install/update bridge**. Then click **Open extension folder** and load that folder through your browser's extension manager. Follow the [complete browser installation and privacy instructions](BrowserExtension/README.md).
 
-Chrome, Edge, Brave, and Chromium use an unpacked developer extension. Firefox uses a temporary unsigned add-on that must be reloaded after each browser restart. Safari continues to use Accessibility. Place the app in Applications before bridge installation. After an update or move, reinstall the bridge and reload the extension. Managed browsers may restrict developer extensions.
+Chrome, Edge, Brave, and Chromium use an unpacked developer extension. Firefox uses a temporary unsigned add-on that must be reloaded after each browser restart. There is no Safari extension; Safari continues to use Accessibility. Place the app in Applications before bridge installation. After an update or move, reinstall the bridge and reload the extension. Managed browsers may restrict developer extensions.
 
 The extension can detect supported browser controls without Accessibility; native clients still need it. It sends only local provider/call/sharing flags with an ephemeral tab/frame ID. Its five-second background heartbeat is independent of inactive-tab timers; the app reads state every two seconds. Tab close/navigation clears its contribution. Crashed/disconnected state expires after 20 seconds plus the next app poll. Frozen or discarded pages and changed controls may still cause misses. Test your client, and choose Presenting before sharing for immediate hiding.
 
@@ -189,10 +189,14 @@ Checks read the latest published stable release from `chipset/Meeting-Busy` on G
 
 ## Update or repair permissions
 
-Locally signed builds may need Accessibility permission granted again after an update or rebuild.
+The supplied ad hoc signed builds use a code identity tied to the exact build. When the app changes, macOS may no longer match its saved Accessibility approval. This is why rebuilding or installing a new ZIP can require another approval. The app's **Grant Accessibility access** button can prompt or open System Settings, but cannot grant itself permission. [Apple explains the code identity behavior](https://developer.apple.com/documentation/technotes/tn3127-inside-code-signing-requirements) and [the Accessibility prompt API](https://developer.apple.com/documentation/applicationservices/1459186-axisprocesstrustedwithoptions).
 
-1. Quit Meeting Busy and replace the old application in Applications with the new copy.
-2. Open **System Settings → Privacy & Security → Accessibility**.
+For future direct-download releases, signing every version with the same Developer ID Application identity and retaining the bundle identifier and installation path should preserve the app's identity across ordinary updates. Moving from an ad hoc build to a Developer ID build may require one more approval. A managed Mac can instead receive an Accessibility policy from IT through Apple's [Privacy Preferences Policy Control payload](https://support.apple.com/guide/deployment/privacy-preferences-policy-control-payload-dep38df53c2a/web).
+
+Only repair the permission if the updated app reports that Accessibility access is denied:
+
+1. Quit Meeting Busy, replace the old application in Applications with the new copy, and reopen it. Check the status in Settings.
+2. If access is denied, quit the app and open **System Settings → Privacy & Security → Accessibility**.
 3. Select the old **Meeting Busy** row, then click **−** below the list to remove it. Authenticate if requested.
 4. Click **+**, select the new `/Applications/Meeting Busy.app`, and click **Open**.
 5. Turn its switch on, reopen Meeting Busy, and select **Automatic**.

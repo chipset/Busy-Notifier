@@ -10,7 +10,7 @@ Safari can reject an ad hoc signed native bundle even with **Allow unsigned exte
 
 The temporary version uses Safari's **Add Temporary Extension** feature and pairs directly with the local Mac app. It needs no paid account or native extension certificate.
 
-1. Quit old copies, update to Meeting Busy 0.4.2 or later, and open the installed copy.
+1. Quit old copies, update to Meeting Busy 0.4.3 or later, and open the installed copy.
 2. In Meeting Busy **Settings → Browser integration**, choose **Safari**, turn integration on, and select **Open Safari extension folder**. This copies the `safari-temporary` folder into Application Support and opens it in Finder.
 3. In Safari **Settings → Advanced**, enable **Show features for web developers**. In **Settings → Developer**, choose **Add Temporary Extension…**, approve Safari's prompt, and select the opened folder. You may instead select `MeetingBusy-0.4.1-safari-temporary-extension.zip` from the release.
 4. Enable **Meeting Busy (Temporary)** under Safari Extensions and allow its supported meeting sites and `127.0.0.1` local-bridge access. Enable it in the Safari profile where you attend calls.

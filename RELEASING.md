@@ -10,7 +10,7 @@ Requires full Xcode with Swift 6 or newer and the Safari web extension converter
 ./scripts/package-release.sh
 ```
 
-This produces `dist/Meeting Busy.app`, `dist/MeetingBusy-0.4.1-universal.zip`, and a `.sha256` checksum file alongside the archive. The default build contains both `arm64` and `x86_64` code and targets macOS 13 or newer. It is ad hoc signed and **not notarized**. Users may need the per-app macOS opening exception described in [USER_GUIDE.md](USER_GUIDE.md).
+This produces `dist/Meeting Busy.app`, `dist/MeetingBusy-0.4.2-universal.zip`, and a `.sha256` checksum file alongside the archive. The default build contains both `arm64` and `x86_64` code and targets macOS 13 or newer. It is ad hoc signed and **not notarized**. Users may need the per-app macOS opening exception described in [USER_GUIDE.md](USER_GUIDE.md).
 
 For a faster build for the current Mac only:
 
@@ -48,7 +48,7 @@ node --test BrowserExtension/tests/*.test.cjs
 codesign --verify --deep --strict "dist/Meeting Busy.app"
 lipo -archs "dist/Meeting Busy.app/Contents/MacOS/MeetingBusy"
 cd dist
-shasum -a 256 -c MeetingBusy-0.4.1-universal.zip.sha256
+shasum -a 256 -c MeetingBusy-0.4.2-universal.zip.sha256
 ```
 
 Complete the [manual acceptance checks](MANUAL_TESTS.md) on actual conferencing clients. Cross-compilation verifies the Intel slice builds, but does not substitute for running it on an Intel Mac. Notification delivery, global hotkeys, and screen-sharing behavior also need interactive testing.

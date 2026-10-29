@@ -41,6 +41,8 @@ The top of Settings shows setup and live-test status: Accessibility permission, 
 
 To move the visible box, **right-click → Move indicator**, then drag it with the left mouse button and release. Control-click also opens this menu. The new position and display save automatically and appear in Settings. Dropping near an edge keeps the entire indicator within the display's usable area. Right-click again and choose **Cancel move** to leave move mode without dragging. When outside a meeting, enable the Settings preview to position it.
 
+To hide it, right-click and choose **Hide for 15 minutes**, **Hide for 1 hour**, or **Hide until I choose Automatic** (the same as the Available mode).
+
 **Move indicator using the keyboard…** is available in the menu, Settings, context menu, and the indicator's accessibility custom action. Arrows move 10 points, Shift+arrows 50, and Option+arrows 1. Directional buttons are also provided. Return/Escape finishes. A temporary preview starts if needed and ends with the movement session; Presenting still hides the indicator. Every move saves immediately.
 
 **Show on every display** can render an indicator on each connected display. Otherwise the selected display is used, with fallback to the main display. Each display can have its own position and visibility; displays without an override use the global location. Dragging an indicator saves that display's position. Disconnected/unused indicator windows are closed.

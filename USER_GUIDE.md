@@ -151,6 +151,8 @@ To move the box directly:
 
 To cancel before dragging, right-click again and choose **Cancel move**. When you are not in a meeting, enable the Settings preview below to make the indicator available for moving. The indicator receives mouse clicks within its box so that its Move menu is accessible; it does not take keyboard focus.
 
+To hide the indicator, right-click it (or Control-click) and choose **Hide for 15 minutes**, **Hide for 1 hour**, or **Hide until I choose Automatic**. This sets the Available mode, so it also keeps any USB light off. Choose **Automatic** in the menu bar to bring detection back early; VoiceOver users have a "Hide indicator until Automatic" custom action.
+
 For keyboard-only movement, choose **Move indicator using the keyboard…** in the menu or Settings, or **Move using keyboard…** from the box's context menu. VoiceOver users can invoke its Move indicator using keyboard custom action. Arrows move 10 points, Shift+arrows 50, and Option+arrows one point. Directional buttons are also available. Return, Escape, or Done finishes; changes save immediately. A temporary preview starts if needed and ends with the movement window. Presenting always keeps the indicator hidden.
 
 Choose a display in Settings before keyboard movement. With Show on every display enabled, moving one indicator updates that display's position. All copies hide together while presenting. Disconnecting a display removes its indicator.

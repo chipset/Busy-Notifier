@@ -35,6 +35,7 @@ Select Presenting and verify the menu bar visibly says Presenting while the indi
 Enable global shortcuts and test Control–Option–Command–1/2/3 from another app. Verify Automatic/Busy/Presenting respectively, with no keyboard focus taken by the indicator. Check the reported registration error if a shortcut is already in use, and verify disabling shortcuts unregisters all three.
 
 Change text, color, size, transparency, location, and display; restart and verify persistence. Right-click → Move indicator, drag between displays, and verify the saved position does not snap back during scans. Test preview start/stop, no preview on opening Settings, and presentation hiding during a preview. Disconnect the chosen display and confirm fallback to the main display. In the Setup and live test section, check permission/bridge status, Check now, Preview Busy, Test Presenting, and Return to Automatic.
+- Right-click the indicator and choose each Hide option: it disappears immediately, the menu bar shows Available (with the expiry time for timed hides), timed hides return to Automatic on schedule, and choosing Automatic restores it. Confirm Control-click and the VoiceOver action also work.
 
 ## Pausing, service switches, reports, and presets
 

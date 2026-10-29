@@ -6,6 +6,8 @@ final class BusyPanel {
     private var indicators: [UInt32: IndicatorWindow] = [:]
     var onMove: ((CGPoint, CGRect, UInt32) -> Void)?
     var onKeyboardMove: (() -> Void)?
+    /// Minutes to hide for, or nil to hide until the user returns to Automatic.
+    var onHide: ((Int?) -> Void)?
 
     func update(visible: Bool, appearance: IndicatorAppearance = IndicatorAppearance(), accessibilityStatus: String = "Status indicator") {
         guard visible else { for indicator in indicators.values { indicator.hide() }; return }
@@ -21,6 +23,7 @@ final class BusyPanel {
             let indicator = indicators[screen.displayID] ?? IndicatorWindow()
             indicator.onMove = { [weak self] origin, bounds, id in self?.onMove?(origin, bounds, id) }
             indicator.onKeyboardMove = { [weak self] in self?.onKeyboardMove?() }
+            indicator.onHide = { [weak self] minutes in self?.onHide?(minutes) }
             indicators[screen.displayID] = indicator
             indicator.update(appearance: appearance, screen: screen, accessibilityStatus: accessibilityStatus)
         }
@@ -33,6 +36,7 @@ private final class IndicatorWindow {
     private var isDragging = false
     var onMove: ((CGPoint, CGRect, UInt32) -> Void)?
     var onKeyboardMove: (() -> Void)?
+    var onHide: ((Int?) -> Void)?
 
     init() {
         panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 168, height: 82),
@@ -50,6 +54,7 @@ private final class IndicatorWindow {
         view.onDragStarted = { [weak self] in self?.isDragging = true }
         view.onDragFinished = { [weak self] in self?.saveDraggedPosition() }
         view.onKeyboardMove = { [weak self] in self?.onKeyboardMove?() }
+        view.onHide = { [weak self] minutes in self?.onHide?(minutes) }
         panel.contentView = view
     }
 
@@ -92,6 +97,7 @@ private final class BusyView: NSView {
     var onDragStarted: (() -> Void)?
     var onDragFinished: (() -> Void)?
     var onKeyboardMove: (() -> Void)?
+    var onHide: ((Int?) -> Void)?
     private var moveEnabled = false
     private var dragStart: CGPoint?
     private var originalOrigin: CGPoint?
@@ -107,8 +113,9 @@ private final class BusyView: NSView {
         setAccessibilityElement(true)
         setAccessibilityLabel("Busy. Status indicator.")
         setAccessibilityRole(.staticText)
-        setAccessibilityCustomActions([NSAccessibilityCustomAction(name: "Move indicator using keyboard", target: self, selector: #selector(accessibilityKeyboardMove))])
-        toolTip = "Right-click and choose Move indicator to change its position."
+        setAccessibilityCustomActions([NSAccessibilityCustomAction(name: "Move indicator using keyboard", target: self, selector: #selector(accessibilityKeyboardMove)),
+                                       NSAccessibilityCustomAction(name: "Hide indicator until Automatic", target: self, selector: #selector(accessibilityHide))])
+        toolTip = "Right-click to move or hide the indicator."
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
@@ -122,7 +129,21 @@ private final class BusyView: NSView {
         let keyboard = NSMenuItem(title: "Move using keyboard…", action: #selector(moveUsingKeyboard), keyEquivalent: "")
         keyboard.target = self
         menu.addItem(keyboard)
+        menu.addItem(.separator())
+        for (title, minutes) in [("Hide for 15 minutes", 15), ("Hide for 1 hour", 60), ("Hide until I choose Automatic", 0)] {
+            let hide = NSMenuItem(title: title, action: #selector(hideIndicator(_:)), keyEquivalent: "")
+            hide.target = self
+            hide.tag = minutes
+            menu.addItem(hide)
+        }
         NSMenu.popUpContextMenu(menu, with: event, for: self)
+    }
+
+    @objc private func hideIndicator(_ sender: NSMenuItem) { cancelMove(); onHide?(sender.tag > 0 ? sender.tag : nil) }
+    @objc private func accessibilityHide() -> Bool {
+        guard onHide != nil else { return false }
+        hideIndicator(NSMenuItem(title: "", action: nil, keyEquivalent: ""))
+        return true
     }
 
     @objc private func moveUsingKeyboard() { cancelMove(); onKeyboardMove?() }
@@ -134,7 +155,7 @@ private final class BusyView: NSView {
 
     @objc private func toggleMove() {
         moveEnabled.toggle()
-        toolTip = moveEnabled ? "Drag the indicator, then release to save its location." : "Right-click and choose Move indicator to change its position."
+        toolTip = moveEnabled ? "Drag the indicator, then release to save its location." : "Right-click to move or hide the indicator."
         window?.invalidateCursorRects(for: self)
     }
 
@@ -168,7 +189,7 @@ private final class BusyView: NSView {
         dragStart = nil
         originalOrigin = nil
         moveEnabled = false
-        toolTip = "Right-click and choose Move indicator to change its position."
+        toolTip = "Right-click to move or hide the indicator."
         window?.invalidateCursorRects(for: self)
     }
 

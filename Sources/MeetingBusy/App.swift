@@ -87,6 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appearance.onChange = { [weak self] in self?.updateUI() }
         appearance.onKeyboardMove = { [weak self] in self?.keyboardMovement.show() }
         panel.onKeyboardMove = { [weak self] in self?.keyboardMovement.show() }
+        panel.onHide = { [weak self] minutes in self?.changeMode(.available, minutes: minutes) }
         panel.onMove = { [weak self] origin, screen, displayID in
             guard let self else { return }
             self.appearance.appearance = self.appearance.appearance.repositioned(to: origin, in: screen, displayID: displayID)

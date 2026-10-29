@@ -31,7 +31,7 @@ This creates an exception for that app. Do not disable Gatekeeper system-wide or
 
 The security exception above and Accessibility permission are separate approvals. Automatic native-client and browser detection without an extension needs **Accessibility** permission to inspect other apps' user interfaces. This is a broad permission that can allow an app to read and control other apps, so grant it only to a copy you trust. Meeting Busy uses it to inspect supported meeting apps and browser controls. [Apple explains Accessibility access here](https://support.apple.com/guide/mac-help/allow-accessibility-apps-to-access-your-mac-mh43185/mac).
 
-1. In Meeting Busy's welcome dialog, select **Grant Accessibility access**. You can also choose **Grant Accessibility access…** from its menu bar menu.
+1. In Meeting Busy's welcome dialog, select **Grant Accessibility access**. You can also choose **Grant Accessibility access…** from its menu bar menu. The first time, macOS shows its own permission dialog (use its **Open System Settings** button); after that the command opens System Settings directly.
 2. In **System Settings → Privacy & Security → Accessibility**, turn on **Meeting Busy**.
 3. If it is missing, click **+**, select `/Applications/Meeting Busy.app`, and click **Open**, then enable its switch.
 4. Quit and reopen Meeting Busy if its menu still says **Setup needed: Accessibility access**.

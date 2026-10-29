@@ -483,8 +483,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func grantAccess() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
+        // The system prompt is what first lists this app under Accessibility, so show it once, on its own
+        // (its button opens System Settings). After that, go straight to the Settings pane instead of both.
+        if !AXIsProcessTrusted(), !UserDefaults.standard.bool(forKey: "didRequestAccessibilityPrompt") {
+            UserDefaults.standard.set(true, forKey: "didRequestAccessibilityPrompt")
+            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(options)
+            return
+        }
         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
     }
 
